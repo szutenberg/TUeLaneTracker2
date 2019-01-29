@@ -24,16 +24,48 @@ How to install them:
 
 Step-by-step installation on a fresh [Xubuntu 18.04.1](http://nl.archive.ubuntu.com/ubuntu-cdimage-xubuntu/releases/18.04/release/) installation:
 
-**TODO** 
-  
+1. Install necessary packages
+```
+sudo apt-get install gcc g++
+sudo apt-get install build-essential
+sudo apt-get install cmake git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
+sudo apt-get install python-dev python-numpy libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-22-dev
+```
+
+2. Download and unpack OpenCV 3.4.5
+```
+wget https://github.com/opencv/opencv/archive/3.4.5.tar.gz
+tar -xf 3.4.5.tar.gz && cd opencv-3.4.5
+```
+
+3. Build and install OpenCV
+```
+mkdir build
+cd build
+cmake ..
+make -j4
+sudo make install
+```
+
+4. Download and unpack Boost 1.62.0
+```
+cd ~
+wget https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.gz
+tar -xf boost_1_62_0.tar.gz && cd boost_1_62_0
+```
+
+5. Build and install Boost
+```
+./bootstrap.sh
+sudo ./b2 install
+```
 
 ### Building
 
 1. clone this repository: 
 ```
-https://github.com/szutenberg/TUeLaneTracker2.git
+git clone https://github.com/szutenberg/TUeLaneTracker2.git
 ```
-
 
 2. Go to the parent directory of the cloned repository:
 ```
@@ -103,13 +135,12 @@ This provides a way to reconfigure the algorithm but only at the compile time. H
 ## Authors
 * **Michal Szutenberg**
 * **Rameez Ismail**
-See also the list of [contributors](https://github.com/RameezI/TUeLaneTracker/graphs/contributors) who participated in this project.
 
+See also the list of [contributors](https://github.com/RameezI/TUeLaneTracker/graphs/contributors) who participated in this project.
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](https://github.com/RameezI/TUeLaneTracker/blob/master/LICENSE.md) file for details
-
 
 ## Acknowledgments
 
