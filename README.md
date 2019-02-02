@@ -87,7 +87,7 @@ make
 5. Download `GradientTangent_640x480.yaml`: **TODO: figure out what is it for, make it smaller and include in repo**
 ```
 mkdir -p ../LaneTrackerApp/build/ConfigFiles/Templates
-wget https://github.com/szutenberg/TUeLaneTracker/raw/master/install/ConfigFiles/Templates/GradientTangent_640x480.yaml -O ../LaneTrackerApp/build/ConfigFiles/Templates/GradientTangent_640x480.yaml
+wget https://github.com/RameezI/TUeLaneTracker/raw/master/install/ConfigFiles/Templates/GradientTangent_640x480.yaml -O ../LaneTrackerApp/build/ConfigFiles/Templates/GradientTangent_640x480.yaml
 ```
 
 6. Executable is built in `../LaneTrackerApp/build/TUeLaneTracker`
