@@ -189,22 +189,23 @@ cv::UMat ImgStoreFeeder::dequeue()
     <<"******************************"<<endl<<endl;
    #endif
 
-   if(lFrame.empty())
-    throw "Failed to get the frame from the process queue! [Empty Frame Exception] ";
+    if (lFrame.empty())
+    {
+    	throw "Failed to get the frame from the process queue! [Empty Frame Exception] ";
+    }
 
-
-    #ifdef PROFILER_ENABLED
+#ifdef PROFILER_ENABLED
     mProfiler.end();
     LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
-                                    <<"******************************"<<endl
-                                    <<  "Frame Dequeue Time." <<endl
-                                    <<  "Max Time: " << mProfiler.getMaxTime("FRAME_DEQUEUE")<<endl
-                                    <<  "Avg Time: " << mProfiler.getAvgTime("FRAME_DEQUEUE")<<endl
-                                    <<  "Min Time: " << mProfiler.getMinTime("FRAME_DEQUEUE")<<endl
-                                    <<"******************************"<<endl<<endl;
-                                    #endif
+    		<<"******************************"<<endl
+			<<  "Frame Dequeue Time." <<endl
+			<<  "Max Time: " << mProfiler.getMaxTime("FRAME_DEQUEUE")<<endl
+			<<  "Avg Time: " << mProfiler.getAvgTime("FRAME_DEQUEUE")<<endl
+			<<  "Min Time: " << mProfiler.getMinTime("FRAME_DEQUEUE")<<endl
+			<<"******************************"<<endl<<endl;
+#endif
 
-   return lFrame;
+    return lFrame;
 }
 
 cv::UMat ImgStoreFeeder::dequeueDisplay()

@@ -188,8 +188,10 @@ cv::UMat StreamFeeder::dequeue()
     <<"******************************"<<endl<<endl;
    #endif
 
-   if(lFrame.empty())
-    throw "Failed to get the frame from the process queue! [Empty Frame Exception] ";
+    if (lFrame.empty())
+    {
+    	throw "Failed to get the frame from the process queue! [Empty Frame Exception] ";
+    }
 
 
     #ifdef PROFILER_ENABLED
