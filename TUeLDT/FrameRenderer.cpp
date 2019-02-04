@@ -39,6 +39,21 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	line(FRAME, Point(0, VP_V), Point(FRAME.cols, VP_V), cv::Scalar(0, 0, 255),	1);
 	line(FRAME, Point(VP_H, 0), Point(VP_H, VP_V), cv::Scalar(0, 0, 255), 1);
 
+/*
+	for (size_t i = 0; i < mCOUNT_BINS; i+=30) {
+		int x1 = mBASE_BINS.at<int32_t>(i, 0) + mO_ICCS_ICS.x;
+		int y1 = mBASE_LINE_ICS;
+
+		int x2 = mPURVIEW_BINS.at<int32_t>(i, 0) + mO_ICCS_ICS.x;
+		int y2 = mPURVIEW_LINE_ICS;
+
+		int sx = x1 - x2;
+		int sy = y1 - y2;
+
+		line(FRAME, cvPoint(x1, y1), cvPoint(x2-2*sx, y2-2*sy), cvScalar(255, 255, 0, 128), 1);
+	}
+*/
+
 	//Lane Bundaries
 	lBoundaryPts_L.push_back( Point(Lane.boundaryLeft[0] + mO_ICCS_ICS.x, mBASE_LINE_ICS));
 

@@ -281,16 +281,6 @@ multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
 			*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
 		}
 	}
-
-
-#ifdef DEBUG_FRAMES
-	printf("\n mMAX_PIXELS_ROI = %d\n", mMAX_PIXELS_ROI);           // 166400
-	printf("\n mLOWER_LIMIT_BASE = %d\n", mLOWER_LIMIT_BASE);       // -878592
-	printf("\n mLOWER_LIMIT_PURVIEW = %d\n", mLOWER_LIMIT_PURVIEW); // -292864
-	printf("\n mSTEP_BASE_SCALED = %d\n", mSTEP_BASE_SCALED);       // 17566
-	printf("\n mSTEP_PURVIEW_SCALED = %d\n", mSTEP_PURVIEW_SCALED); // 5855
-#endif
-
 }//Block Ends
 
 #ifdef PROFILER_ENABLED
