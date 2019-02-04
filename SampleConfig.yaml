@@ -1,0 +1,36 @@
+%YAML:1.0
+# Lane Properties
+lane_avg_width: 300
+lane_std_width: 15
+lane_min_width: 250
+lane_max_width: 500
+lane_marker_width: 15
+
+# Camera Resolution
+cam_res_v: 480  # Vertical resolution [pixels]
+cam_res_h: 640  # Horizontal resolution [pixels]
+
+# Camera Intrinsic parameters
+cam_fx: 563.9912133  # Focal length x-axis [pixels]
+cam_fy: 526.0339806  # Focal length y-axis [pixels]
+
+cam_cx: 0 # Principal point x-axis in Image-Center-CS [pixels]
+cam_cy: 0 # Principal point y-axis in Image-Center-CS [pixels]
+
+# Camera Extrinsic parameters
+cam_pitch : 6  # Pitch of the camera [degrees].
+cam_yaw : 0    # Yaw of the camera [degrees].
+cam_height: 1  # Camera height from the road [meters].
+cam_lateral_offset: 0 # Lateral-Offset of the camera from the vehicle symmetry plane[meters].
+
+# LaneFilter VpFilter Paramters
+base_line_IBCS:  0      # Describes base line in Image-Bottom-Coordinate-System
+purview_line_IBCS: 160  # Describes purview line in Image-Bottom-Coordinate-System 
+step_lane_filter_cm: 10 # Provides bin-size for the 1D lane filters
+step_vp_filter: 10      # Provides bin-size for 2D vanishing-point filter 
+
+vp_range_ver: 20  # Vertical range of VP on either side of the Horizon Line [pixels] 
+vp_range_hor: 300 # Horizontal range of VP on either sides of center point [pixels] 
+
+buffer_count: 3     #  Provide number of frames to buffer[Temporal Filtering]
+display_graphics: 1 #  Renders graphics on to a HDMI display (0 - false, 1 - true)
