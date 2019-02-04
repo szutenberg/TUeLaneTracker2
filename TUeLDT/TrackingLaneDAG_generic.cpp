@@ -20,6 +20,8 @@
 #include "TrackingLaneDAG_generic.h"
 #include "ScalingFactors.h"
 
+//#define DEBUG_FRAMES
+
 #ifdef DEBUG_FRAMES
 	#include "opencv2/opencv.hpp"
 #endif
@@ -482,7 +484,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 
 	mPosterior	 = 0;
 	mMaxPosterior = 0;
-
+int width;
 	// Save current values of VP
 	mVanishPt.V_prev = mVanishPt.V;
 	mVanishPt.H_prev = mVanishPt.H;
@@ -626,6 +628,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 						mVanishPt.H 	= lBIN_H;
 						mIdxPurview_LB  	= lIdx_LB;
 						mIdxPurview_RB  	= lIdx_RB;
+						width = lWidth_cm;
 					}
 
 				}
@@ -639,27 +642,43 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		mVanishPt.H = mVanishPt.H_prev;
 	}
 
+	printf("\n width = %d\n", width);
+
 } // Scope Ends
 
 #ifdef DEBUG_FRAMES
 {
-	int mPURVIEW_LINE_ICS = 320;
 	cv::Mat FrameTest;
 	cv::cvtColor(FrameGRAY, FrameTest, cv::COLOR_GRAY2BGR);
 
-	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++) {
-		int x = 5.7177 * (float)i + 34;
-		int val = mHistPurview.at<uint32_t>(i)/8 - 50;
-		if (val < 0) val = 1;
-		cv::line(FrameTest, cvPoint(x, mPURVIEW_LINE_ICS), cvPoint(x, mPURVIEW_LINE_ICS - val), cvScalar(0, val, 0), 3);
+	uint32_t mHistPurviewMax = 0;
+	uint32_t mHistBaseMax = 0;
+	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
+	{
+		if (mHistPurview.at<uint32_t>(i) > mHistPurviewMax) mHistPurviewMax = mHistPurview.at<uint32_t>(i);
+		if (mHistBase.at<uint32_t>(i)    > mHistBaseMax)    mHistBaseMax    = mHistBase.at<uint32_t>(i);
 	}
 
+	uint32_t BAR_MAX_HEIGHT = 200;
+	uint32_t mHistPurviewScale = mHistPurviewMax / BAR_MAX_HEIGHT;
+	uint32_t mHistBaseScale = mHistBaseMax / BAR_MAX_HEIGHT;
 
-	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++) {
-		int x = 17.15413 * (float)i - 537;
-		int val = mHistBase.at<uint32_t>(i)/8 - 50;
+	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
+	{
+		int x = mLaneFilter->PURVIEW_BINS.at<int32_t>(i, 0) + mLaneFilter->O_ICCS_ICS.x;
+		int y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+		int val = mHistPurview.at<uint32_t>(i) / mHistPurviewScale;
 		if (val < 0) val = 1;
-		cv::line(FrameTest, cvPoint(x, mPURVIEW_LINE_ICS + 200), cvPoint(x, mPURVIEW_LINE_ICS - val + 160), cvScalar(val, 0, 0), 5);
+		cv::line(FrameTest, cvPoint(x, y), cvPoint(x, y - val), cvScalar(0, val, 0), 3);
+	}
+
+	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
+	{
+		int x = mLaneFilter->BASE_BINS.at<int32_t>(i, 0) + mLaneFilter->O_ICCS_ICS.x;
+		int y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+		int val = mHistBase.at<uint32_t>(i) / mHistBaseScale;
+		if (val < 0) val = 1;
+		cv::line(FrameTest, cvPoint(x, y), cvPoint(x, y - val), cvScalar(val, 0, 0), 5);
 	}
 
 	cv::imshow("TrackingLaneDAG", FrameTest);
