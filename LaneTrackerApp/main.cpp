@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) /**
 
 			cout << endl << endl << "	Examples:" << endl;
 			cout << "	./TUeLaneTracker -m " << FrameSource::DIRECTORY << " -s "
-					<< "/home/DataSet" << endl;
+					<< "/home/DataSet -c Config.yaml" << endl;
 			cout << endl << endl;
 			lReturn = 1;
 		}
@@ -73,6 +73,9 @@ int main(int argc, char* argv[]) /**
 	{
 		lReturn = readConfig(lConfigFileName, lPtrConfig.get());
 	}
+
+	// TODO: explain it in help
+	if (lSourceStr.find(".mp4") != string::npos) lFrameSource = FrameSource::STREAM;
 
 	unique_ptr<FrameFeeder> lPtrFeeder;
 	if (lReturn == 0) //create FrameFeeder
