@@ -20,7 +20,7 @@
 #include "TrackingLaneDAG_generic.h"
 #include "ScalingFactors.h"
 
-//#define DEBUG_FRAMES
+#define DEBUG_FRAMES
 
 #ifdef DEBUG_FRAMES
 	#include "opencv2/opencv.hpp"
