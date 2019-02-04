@@ -231,7 +231,6 @@ int readConfig(std::string path, LaneTracker::Config* cfg)
 	cfg->vp_range_hor = fs["vp_range_hor"];
 	cfg->buffer_count = fs["buffer_count"];
 	cfg->display_graphics = ((int)fs["display_graphics"]) != 0;
-	cout << cfg->display_graphics << endl;
 	fs.release();
 
 	return 0;
