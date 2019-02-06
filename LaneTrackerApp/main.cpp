@@ -6,6 +6,8 @@
 using namespace std;
 namespace po = boost::program_options;
 
+int debugX, debugY, debugZ; // TODO: remove it
+
 //Function definitions
 unique_ptr<FrameFeeder> createFrameFeeder(FrameSource srcMode,
 		string srcString);
@@ -46,6 +48,10 @@ int main(int argc, char* argv[]) /**
 		("Source,s", po::value<string>(&lSourceStr)->default_value("DataSet"),
 				"\t provides source configuration")
 
+		("debugX,x", po::value<int>(&debugX)->default_value(0),	"\t debug X")
+		("debugY,y", po::value<int>(&debugY)->default_value(0),	"\t debug Y")
+		("debugZ,z", po::value<int>(&debugZ)->default_value(0),	"\t debug Z")
+
 		("Config,c", po::value<string>(&lConfigFileName)->default_value(""),
 				"\t yaml configuration file");
 
@@ -69,6 +75,7 @@ int main(int argc, char* argv[]) /**
 
 	} // End parsing command line options
 
+	printf("text,SNRb,SNRp,width\n"); // TODO: remove it
 	if ((lReturn == 0) && (!lConfigFileName.empty()))
 	{
 		lReturn = readConfig(lConfigFileName, lPtrConfig.get());
@@ -145,13 +152,13 @@ int main(int argc, char* argv[]) /**
 				std::cout.flush();
 				lPreviousState = stateMachine.getCurrentState();
 			} else if (lCyclesCount % 100 == 0) {
-				cout << endl << stateMachine.getCurrentState();
+				/*cout << endl << stateMachine.getCurrentState();
 				cout << "state cycle-count = " << lCyclesCount
 						<< "    Cycle-Time [Min, Avg, Max] : " << "[ "
 						<< lProfiler.getMinTime("StateMachine_Cycle") << " "
 						<< lProfiler.getAvgTime("StateMachine_Cycle") << " "
 						<< lProfiler.getMaxTime("StateMachine_Cycle") << " "
-						<< " ]";
+						<< " ]";*/
 			}
 
 		} // End spinning

@@ -26,6 +26,8 @@
 	#include "opencv2/opencv.hpp"
 #endif
 
+extern int debugX, debugY, debugZ;
+
 TrackingLaneDAG_generic::TrackingLaneDAG_generic(BufferingDAG_generic&& bufferingGraph)
 : 
   BufferingDAG_generic(std::move(bufferingGraph)),
@@ -187,12 +189,32 @@ mProfiler.start("COMPUTE_INTERSECTIONS");
 
 //Base Intersections
 subtract(mY_ICCS, mLaneFilter->BASE_LINE_ICCS, mIntBase, cv::noArray(), CV_32S);
-divide(mIntBase, mGradTanFocussed, mIntBase, SCALE_INTSEC_TAN, CV_32S);
+
+if (debugX)
+{
+	divide(mIntBase,mGradTanTemplate, mIntBase, SCALE_INTSEC_TAN, CV_32S);
+
+}
+else
+{
+	divide(mIntBase, mGradTanFocussed, mIntBase, SCALE_INTSEC_TAN, CV_32S);
+}
+
 add(mIntBase, mX_ICCS_SCALED, mIntBase);
 
 //Purview Intersections
 subtract(mY_ICCS, mLaneFilter->PURVIEW_LINE_ICCS, mIntPurview, cv::noArray(), CV_32S);
-divide(mIntPurview,mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
+
+if (debugX)
+{
+	divide(mIntPurview,mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
+}
+else
+{
+	divide(mIntPurview,mGradTanTemplate, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
+}
+
+
 add(mIntPurview, mX_ICCS_SCALED, mIntPurview);
 
 
@@ -253,6 +275,9 @@ mProfiler.start("COMPUTE_HISTOGRAMS");
 //Weights of Intersections
 multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
 
+cv::imshow("mIntWeights", mIntWeights*20);
+cv::imshow("mMask", mMask);
+
 {
 	int32_t* 	lPtrIntBase 	    = mIntBase.ptr<int32_t>(0);
 	int32_t* 	lPtrIntPurview      = mIntPurview.ptr<int32_t>(0);
@@ -265,7 +290,43 @@ multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
 	uint16_t   	lBaseBinIdx;
 	uint16_t   	lPurviewBinIdx;
 	int32_t    	lWeightBin;
+	
+	
+if (debugX)
+{
+	for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrWeights++ , lPtrMask++)
+	{
 
+		if(!(*lPtrMask == 0) )
+		{
+			lBaseBinIdx	    = (*lPtrIntBase    - mLOWER_LIMIT_BASE    + (mSTEP_BASE_SCALED   /2) )/mSTEP_BASE_SCALED;
+			lPurviewBinIdx	= (*lPtrIntPurview - mLOWER_LIMIT_PURVIEW + (mSTEP_PURVIEW_SCALED/2) )/mSTEP_PURVIEW_SCALED;
+			lWeightBin 	= *lPtrWeights;
+
+			assert((0<=lBaseBinIdx)&&(lBaseBinIdx<mHistBase.rows ));
+if (debugY)			printf("a,%d,%d,%d,%d\n", i/1280, i%1280, lBaseBinIdx, lPurviewBinIdx);
+			if ((i/1280) < 80)
+			{
+				// ignore
+			}
+			else if ((i/1280) < 125)
+			{
+				*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
+			}
+			else if ((i/1280) < 175)
+			{
+				*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
+				*(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
+			}
+			else
+			{
+				*(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
+			}
+		}
+	}
+}
+else
+{
 	for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrWeights++ , lPtrMask++)
 	{
 		if(!(*lPtrMask == 0) )
@@ -276,11 +337,15 @@ multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
 			lWeightBin 	= *lPtrWeights;
 
 			assert((0<=lBaseBinIdx)&&(lBaseBinIdx<mHistBase.rows ));
+if (debugY)			printf("a,%d,%d,%d,%d\n", i/1280, i%1280, lBaseBinIdx, lPurviewBinIdx);
 
 			*(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
 			*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
 		}
 	}
+}
+
+if (debugY) 	assert(false);
 }//Block Ends
 
 #ifdef PROFILER_ENABLED
@@ -372,7 +437,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
 #ifdef PROFILER_ENABLED
 mProfiler.start("HISTOGRAM_MATCHING");
 #endif
-{
+// TODO - scope ({)
 	int32_t   	lBestModelIdx = -1;
 	int32_t* 	lPtrHistBase  = nullptr;
 	cv::Mat    	lRange;
@@ -434,8 +499,7 @@ mProfiler.start("HISTOGRAM_MATCHING");
 	}
 
 
-
-}//Scope End
+//Scope End TODO
 
 #ifdef PROFILER_ENABLED
 mProfiler.end();
@@ -625,6 +689,56 @@ int width;
 			}
 		}
 	}
+
+	// SNR
+	// for base/purview:   (hist peaks chosen as boundary)/2   / (sum of hist on detected lane with margin of 7)/n;
+	int left = Models[lBestModelIdx].binIdxBoundary_left;
+	int right = Models[lBestModelIdx].binIdxBoundary_right;
+	int32_t signal = (lPtrHistBase[left] + lPtrHistBase[right]) / 2;
+	int32_t noise = 0;
+	float SNRb, SNRp;
+
+
+	int n = 0;
+	if ((right - left) < 15)
+	{
+		SNRb = -10;
+	}
+	else
+	{
+		for (int i = left+ 7; i < (right -7); i++, n++)
+		{
+			noise += lPtrHistBase[i];
+		}
+		noise /= n;
+
+		SNRb = (float)signal/noise;
+	}
+
+	n = 0;
+	noise = 0;
+	left = mIdxPurview_LB;
+	right = mIdxPurview_RB;
+	signal =  (lPtrHistPurview[left] + lPtrHistPurview[right]) / 2;
+
+
+	if ((right - left) < 15)
+	{
+		SNRp = -10;
+	}
+	else
+	{
+		for (int i = left+ 7; i < (right -7); i++, n++)
+		{
+			noise += lPtrHistPurview[i];
+		}
+		noise /= n;
+
+		SNRp = (float)signal/noise;
+	}
+
+
+	printf("SNR,%f,%f,%d\n", SNRb, SNRp, width);
 
 	if (mMaxPosterior == 0)
 	{
