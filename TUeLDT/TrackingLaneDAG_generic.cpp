@@ -248,6 +248,9 @@ mProfiler.start("MASK_INVALID_BIN_IDS");
 	bitwise_and(mMask, mIntBase    <  mUPPER_LIMIT_BASE, 	mMask);
 	bitwise_and(mMask, mIntPurview <  mUPPER_LIMIT_PURVIEW, mMask);
 
+	cv::Mat nMask(mMask, cv::Rect(0, mMask.rows-1-debugZ, mMask.cols, debugZ) );
+	nMask = 0;
+
 	//^TODO: Put on the side thread
 	mHistBase      = cv::Mat::zeros(mLaneFilter->COUNT_BINS,  1 ,  CV_32S);
 	mHistPurview   = cv::Mat::zeros(mLaneFilter->COUNT_BINS,  1 ,  CV_32S);
