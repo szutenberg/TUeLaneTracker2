@@ -22,6 +22,8 @@
 #include "FrameRenderer.h"
 
 using namespace cv;
+extern int dumpProbMaps;
+extern int dumpCounter;
 
 void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 
@@ -71,6 +73,25 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	lBoundaryPts_R.push_back(lBoundaryPts_R[0]);
 	lBoundaryPts_R[1].x += -round((mBASE_LINE_ICS * lRatioLookAhead) / lSlopeRight);
 	lBoundaryPts_R[1].y += -round((mBASE_LINE_ICS * lRatioLookAhead));
+
+
+
+	if (dumpProbMaps)
+	{
+		if (dumpCounter == 1)
+		{
+			printf("dumpProbMaps, l1x, l1y, l2x, l2y, r1x, r1y, r2x, r2y\n");
+		}
+		Point l1 = lBoundaryPts_L[0];
+		Point l2 = lBoundaryPts_L[1];
+
+		Point r1 = lBoundaryPts_R[0];
+		Point r2 = lBoundaryPts_R[1];
+
+		printf("dumpProbMaps,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", dumpCounter++, l1.x, l1.y, l2.x, l2.y, r1.x, r1.y, r2.x, r2.y);
+	}
+
+
 
 	lBoundaryPts_M.push_back((lBoundaryPts_L[1] + lBoundaryPts_R[1]) / 2.0);
 

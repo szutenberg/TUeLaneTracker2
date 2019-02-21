@@ -27,6 +27,11 @@
 #endif
 
 extern int debugX, debugY, debugZ;
+extern int  dumpProbMaps;
+int dumpCounter = 1;
+
+
+
 
 TrackingLaneDAG_generic::TrackingLaneDAG_generic(BufferingDAG_generic&& bufferingGraph)
 : 
@@ -278,8 +283,16 @@ mProfiler.start("COMPUTE_HISTOGRAMS");
 //Weights of Intersections
 multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
 
-cv::imshow("mIntWeights", mIntWeights*20);
-cv::imshow("mMask", mMask);
+if (dumpProbMaps)
+{
+	char path[30];
+
+	sprintf(path, "/tmp/LDT/%d.png", dumpCounter);
+
+	imwrite(path, mProbMapFocussed );
+}
+//cv::imshow("mIntWeights", mIntWeights*20);
+//cv::imshow("mMask", mMask);
 
 {
 	int32_t* 	lPtrIntBase 	    = mIntBase.ptr<int32_t>(0);

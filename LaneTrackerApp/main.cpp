@@ -7,6 +7,7 @@ using namespace std;
 namespace po = boost::program_options;
 
 int debugX, debugY, debugZ; // TODO: remove it
+int dumpProbMaps;
 
 //Function definitions
 unique_ptr<FrameFeeder> createFrameFeeder(FrameSource srcMode,
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]) /**
 		("debugX,x", po::value<int>(&debugX)->default_value(0),	"\t debug X")
 		("debugY,y", po::value<int>(&debugY)->default_value(0),	"\t debug Y")
 		("debugZ,z", po::value<int>(&debugZ)->default_value(0),	"\t debug Z")
-
+		("dumpProbMaps,p", po::value<int>(&dumpProbMaps)->default_value(0), "\t dump probability maps (saves to /tmp/LDT) and prints lane params on stdout")
 		("Config,c", po::value<string>(&lConfigFileName)->default_value(""),
 				"\t yaml configuration file");
 
