@@ -15,15 +15,16 @@ class CurveDetector
 
 
 private:
-
-
+	inline int isPointOutOfRange(Point a, int width, int height);
+	int MAX_STEPS_AMOUNT;
 
 
 public:
 	int detectCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
-	std::vector<Point> grabPoints(Point a, Point b);
+	void grabPoints(Point a, Point b, std::vector<Point> &points);
 	std::vector<Point> selectNextPoints(const cv::UMat& img, Point a, Point2f vec);
 	int calcScore(const cv::UMat& img, Point a, Point b);
+	int computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
 
 
 
