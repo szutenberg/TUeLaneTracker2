@@ -78,6 +78,7 @@ private:
         #endif
 
 	cv::Mat			mProbMapFocussed;
+	cv::Mat 		mapCopy;
 	cv::Mat 		mGradTanFocussed;
 
 	cv::Mat 		mIntBase;           

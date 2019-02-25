@@ -168,6 +168,8 @@ for ( std::size_t i=1; i< mBufferPool->Probability.size(); i++ )
 	cv::imshow("mProbMapFocussed", mProbMapFocussed);
 #endif
 
+	mProbMapFocussed.copyTo(mapCopy);
+
 #ifdef PROFILER_ENABLED
 mProfiler.end();
 LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
@@ -849,7 +851,69 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 		<<"******************************"<<endl<<endl;
 #endif
 
+{
+	cv::Mat edgeMap;
+	cv::Mat tmp1;
+	cv::Mat tmp2;
 
+	mapCopy.copyTo(edgeMap);
+	edgeMap.convertTo(edgeMap, CV_16S);
+
+	double minVal;
+	double maxVal;
+	cv::Point minLoc;
+	cv::Point maxLoc;
+
+	minMaxLoc( edgeMap, &minVal, &maxVal, &minLoc, &maxLoc );
+	cout << minVal << "  " << maxVal << endl;
+
+
+	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
+
+	cv::Mat kernel;
+	kernel = cv::Mat::ones(1, 3, CV_32F);
+	kernel.at<float>(0, 0) = 0.125;
+	kernel.at<float>(0, 1) = 0.125;
+	kernel.at<float>(0, 2) = -0.750;
+	filter2D(edgeMap, tmp1, CV_16S, kernel);
+	tmp1.convertTo(tmp1, CV_16U);
+
+	tmp1.copyTo(tmp2);
+
+	kernel.at<float>(0, 0) = -0.750;
+	kernel.at<float>(0, 1) = 0.125;
+	kernel.at<float>(0, 2) = 0.125;
+	filter2D(edgeMap, tmp1, CV_16S, kernel);
+	tmp1.convertTo(tmp1, CV_16U);
+	tmp2 += tmp1;
+
+
+	kernel = cv::Mat::ones(3, 1, CV_32F);
+	kernel.at<float>(0, 0) = -0.750;
+	kernel.at<float>(1, 0) = 0.125;
+	kernel.at<float>(2, 1) = 0.125;
+	filter2D(edgeMap, tmp1, CV_16S, kernel);
+	tmp1.convertTo(tmp1, CV_16U);
+
+	tmp2 += tmp1;
+
+	kernel.at<float>(0, 0) = 0.125;
+	kernel.at<float>(1, 0) = 0.125;
+	kernel.at<float>(2, 1) = -0.750;
+	filter2D(edgeMap, tmp1, CV_16S, kernel);
+	tmp1.convertTo(tmp1, CV_16U);
+
+	tmp2 += tmp1;
+
+	multiply(tmp2, tmp2, edgeMap, 1, CV_32S);
+
+	int div = maxVal / 255;
+	edgeMap /= div;
+
+	edgeMap.convertTo(edgeMap, CV_8U);
+
+	cv::imshow("edgemap", edgeMap);
+}
 
 
 #ifdef PROFILER_ENABLED
