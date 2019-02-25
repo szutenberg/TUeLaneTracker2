@@ -19,6 +19,8 @@
 
 #include "TrackingLaneDAG_generic.h"
 #include "ScalingFactors.h"
+#include "CurveDetector.h"
+
 
 #define DEBUG_FRAMES
 
@@ -279,9 +281,6 @@ mProfiler.start("COMPUTE_HISTOGRAMS");
 #endif
 //Weights of Intersections
 multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
-
-cv::imshow("mIntWeights", mIntWeights*20);
-cv::imshow("mMask", mMask);
 
 {
 	int32_t* 	lPtrIntBase 	    = mIntBase.ptr<int32_t>(0);
@@ -854,65 +853,80 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 {
 	cv::Mat edgeMap;
 	cv::Mat tmp1;
+	cv::Mat sx;
+	cv::Mat sy;
 	cv::Mat tmp2;
 
 	mapCopy.copyTo(edgeMap);
-	edgeMap.convertTo(edgeMap, CV_16S);
+	edgeMap.convertTo(edgeMap, CV_32F);
 
 	double minVal;
 	double maxVal;
 	cv::Point minLoc;
 	cv::Point maxLoc;
 
-	minMaxLoc( edgeMap, &minVal, &maxVal, &minLoc, &maxLoc );
-	cout << minVal << "  " << maxVal << endl;
-
-
 	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
 
 	cv::Mat kernel;
-	kernel = cv::Mat::ones(1, 3, CV_32F);
-	kernel.at<float>(0, 0) = 0.125;
-	kernel.at<float>(0, 1) = 0.125;
-	kernel.at<float>(0, 2) = -0.750;
-	filter2D(edgeMap, tmp1, CV_16S, kernel);
-	tmp1.convertTo(tmp1, CV_16U);
 
-	tmp1.copyTo(tmp2);
+	kernel = cv::Mat::ones(3, 3, CV_32F);
 
-	kernel.at<float>(0, 0) = -0.750;
-	kernel.at<float>(0, 1) = 0.125;
-	kernel.at<float>(0, 2) = 0.125;
-	filter2D(edgeMap, tmp1, CV_16S, kernel);
-	tmp1.convertTo(tmp1, CV_16U);
-	tmp2 += tmp1;
+	kernel.at<float>(0,0) = 0.125;
+	kernel.at<float>(0,1) = 0;
+	kernel.at<float>(0,2) = -0.125;
+	kernel.at<float>(1,0) = 0.25;
+	kernel.at<float>(1,1) = 0;
+	kernel.at<float>(1,2) = -0.25;
+	kernel.at<float>(2,0) = 0.125;
+	kernel.at<float>(2,1) = 0;
+	kernel.at<float>(2,2) = -0.125;
+	filter2D(edgeMap, sx, CV_32F, kernel);
 
+	kernel.at<float>(0,0) = 0.125;
+	kernel.at<float>(0,1) = 0.25;
+	kernel.at<float>(0,2) = 0.125;
+	kernel.at<float>(1,0) = 0;
+	kernel.at<float>(1,1) = 0;
+	kernel.at<float>(1,2) = 0;
+	kernel.at<float>(2,0) = -0.125;
+	kernel.at<float>(2,1) = -0.250;
+	kernel.at<float>(2,2) = -0.125;
+	filter2D(edgeMap, sy, CV_32F, kernel);
 
-	kernel = cv::Mat::ones(3, 1, CV_32F);
-	kernel.at<float>(0, 0) = -0.750;
-	kernel.at<float>(1, 0) = 0.125;
-	kernel.at<float>(2, 1) = 0.125;
-	filter2D(edgeMap, tmp1, CV_16S, kernel);
-	tmp1.convertTo(tmp1, CV_16U);
+	multiply(sx, sx, sx, CV_32F);
+	multiply(sy, sy, sy, CV_32F);
 
-	tmp2 += tmp1;
+	add(sx, sy, edgeMap);
 
-	kernel.at<float>(0, 0) = 0.125;
-	kernel.at<float>(1, 0) = 0.125;
-	kernel.at<float>(2, 1) = -0.750;
-	filter2D(edgeMap, tmp1, CV_16S, kernel);
-	tmp1.convertTo(tmp1, CV_16U);
+	minMaxLoc( edgeMap, &minVal, &maxVal, &minLoc, &maxLoc );
+	cout << minVal << "  " << maxVal << endl;
 
-	tmp2 += tmp1;
-
-	multiply(tmp2, tmp2, edgeMap, 1, CV_32S);
-
-	int div = maxVal / 255;
+	double div = maxVal/255;
 	edgeMap /= div;
-
 	edgeMap.convertTo(edgeMap, CV_8U);
 
 	cv::imshow("edgemap", edgeMap);
+
+	cv::UMat image;
+	edgeMap.copyTo(image);
+	CurveDetector cd;
+
+	cv::Point r1, r2;
+
+	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
+	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
+
+	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
+	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
+
+
+	mPtrLaneModel->curveRight.clear();
+ 	cd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
+ 	printf("%d \n", mPtrLaneModel->curveRight.size());
+
+
+
+ 	printf("======================================================\n");
 }
 
 
