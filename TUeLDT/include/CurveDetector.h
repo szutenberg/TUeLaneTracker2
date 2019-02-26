@@ -26,6 +26,9 @@ public:
 	int calcScore(const cv::UMat& img, Point a, Point b);
 	int computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
 	int left;
+	std::vector<Point> debugV;
+	int lookingForFirstPoint;
+
 
 
 

@@ -929,12 +929,19 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 
 	mPtrLaneModel->curveRight.clear();
 	mPtrLaneModel->curveLeft.clear();
+	rcd.debugV.clear();
+	lcd.debugV.clear();
 
  	rcd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
  	lcd.detectCurve(image, l1, l2, mPtrLaneModel->curveLeft);
 
 	cv::Mat FrameDbg;
 	cv::cvtColor(image, FrameDbg, cv::COLOR_GRAY2BGR);
+
+	cv::Point c1(-3, 0);
+	cv::Point c2(3, 0);
+	cv::Point c3(0, 3);
+	cv::Point c4(0, -3);
 
 
 	for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
@@ -948,26 +955,43 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	}
 
 
+	for (Point pt : mPtrLaneModel->curveRight)
+	{
+		line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+		line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+	}
+
+	for (Point pt : mPtrLaneModel->curveLeft)
+	{
+		line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+		line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+	}
+
+	for(int i = 0; i < (int)rcd.debugV.size(); i+=2)
+	{
+		//line(FrameDbg, rcd.debugV[i], rcd.debugV[i+1], CvScalar(255, 255, 0), 1);
+	}
+
+	for(int i = 0; i < (int)lcd.debugV.size(); i+=2)
+	{
+		//line(FrameDbg, lcd.debugV[i], lcd.debugV[i+1], CvScalar(255, 255, 0), 1);
+	}
+
 
 
 
 	imshow("debug", FrameDbg);
 
 
- 	for (int i = 0; i < mPtrLaneModel->curveRight.size(); i++)
+ 	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
  	{
  		mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - edgeMap.rows;
  	}
 
- 	for (int i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
+ 	for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
  	{
  		mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - edgeMap.rows;
  	}
-
-
- 	printf("%d \n", mPtrLaneModel->curveRight.size());
-
-
 
  	printf("======================================================\n");
 }

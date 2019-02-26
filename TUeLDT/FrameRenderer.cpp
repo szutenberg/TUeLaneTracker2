@@ -25,7 +25,7 @@ using namespace cv;
 
 void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 
-	const float lRatioLookAhead = 0.1;
+	const float lRatioLookAhead = 0.13;
 
 	vector<Point> lBoundaryPts_L;
 	vector<Point> lBoundaryPts_R;
