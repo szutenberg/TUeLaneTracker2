@@ -25,6 +25,7 @@ public:
 	std::vector<Point> selectNextPoints(const cv::UMat& img, Point a, Point2f vec);
 	int calcScore(const cv::UMat& img, Point a, Point b);
 	int computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
+	int left;
 
 
 

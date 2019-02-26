@@ -17,7 +17,7 @@ int CurveDetector::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vec
 
 	p1 = p2;
 
-	for (int xoffset = -30; xoffset <= 30; xoffset +=15)
+	for (int xoffset = -30 + left * 20; xoffset <= 30 + left * 20; xoffset +=10)
 	{
 		std::vector<Point> tmpCurve;
 		Point start = p1;
@@ -26,13 +26,12 @@ int CurveDetector::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vec
 		Point pos;
 		pos.x = start.x + vec.x * 80.0;
 		pos.y = start.y + vec.y * 80.0;
-		int value = computeCurve(img, start, pos, tmpCurve);
+		int value = computeCurve(img, start, pos, tmpCurve) * (50 + xoffset * left);
 		if (value > maxVal)
 		{
 			maxVal = value;
 			curve = tmpCurve;
 		}
-
 	}
 
 	return maxVal;
@@ -136,8 +135,8 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 	for (int i = 0; i < 4; i++)
 	{
 		Point2f c(a);
-		c.x += vec.x * (1<<i) * 20.0;
-		c.y += vec.y * (1<<1) * 20.0;
+		c.x += vec.x * (1<<i) * 10.0;
+		c.y += vec.y * (1<<1) * 10.0;
 		Point e1(c + vecPerp);
 		Point e2(c - vecPerp);
 
@@ -147,7 +146,7 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 			continue;
 		}
 
-		int maxVal = 10;
+		int maxVal = 1;
 		Point maxPos(0, 0);
 		float curAng = atan(vec.y / vec.x);
 		std::vector<Point> candidatePoints;
@@ -164,7 +163,7 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 				float newAng = atan(newVec.y / newVec.x);
 
 				float dif = abs(newAng - curAng) * 180.0 / 3.14;
-				if (dif > 7)
+				if (dif > 10)
 				{
 					printf("selectNextPoints(i = %d): dif = %f\n", i, dif);
 					continue;

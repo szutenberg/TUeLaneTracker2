@@ -865,7 +865,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	cv::Point minLoc;
 	cv::Point maxLoc;
 
-	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
+	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 5, 5, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
 
 	cv::Mat kernel;
 
@@ -905,11 +905,9 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	edgeMap /= div;
 	edgeMap.convertTo(edgeMap, CV_8U);
 
-	cv::imshow("edgemap", edgeMap);
-
 	cv::UMat image;
 	edgeMap.copyTo(image);
-	CurveDetector cd;
+	CurveDetector lcd, rcd;
 
 	cv::Point r1, r2, l1, l2;
 
@@ -925,21 +923,41 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
 	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
 
-
+	lcd.left = 1;
+	rcd.left = -1;
 
 
 	mPtrLaneModel->curveRight.clear();
+	mPtrLaneModel->curveLeft.clear();
 
- 	cd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
+ 	rcd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
+ 	lcd.detectCurve(image, l1, l2, mPtrLaneModel->curveLeft);
+
+	cv::Mat FrameDbg;
+	cv::cvtColor(image, FrameDbg, cv::COLOR_GRAY2BGR);
+
+
+	for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
+	{
+		line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
+	}
+
+	for(int i = 1; i < (int)mPtrLaneModel->curveLeft.size(); i++)
+	{
+		line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
+	}
+
+
+
+
+
+	imshow("debug", FrameDbg);
+
 
  	for (int i = 0; i < mPtrLaneModel->curveRight.size(); i++)
  	{
  		mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - edgeMap.rows;
  	}
-
-	mPtrLaneModel->curveLeft.clear();
-
- 	cd.detectCurve(image, l1, l2, mPtrLaneModel->curveLeft);
 
  	for (int i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
  	{
