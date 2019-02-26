@@ -22,7 +22,7 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 * ****************************************************************************/
 
-#define PROFILER_ENABLED		/**< If defined, the program logs and profiles its execution*/
+//#define PROFILER_ENABLED		/**< If defined, the program logs and profiles its execution*/
 //#define WRITE_FRAMES_TO_FILE  /**< If defined, the output is saved to a video file */
 
 namespace LaneTracker
