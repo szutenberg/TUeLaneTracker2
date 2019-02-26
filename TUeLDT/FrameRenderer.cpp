@@ -25,7 +25,7 @@ using namespace cv;
 
 void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 
-	const float lRatioLookAhead = 0.35;
+	const float lRatioLookAhead = 0.1;
 
 	vector<Point> lBoundaryPts_L;
 	vector<Point> lBoundaryPts_R;
@@ -91,10 +91,14 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	line(FRAME, Point(0, mPURVIEW_LINE_ICS),
 			Point(FRAME.cols, mPURVIEW_LINE_ICS), CvScalar(0, 0, 0), 1);
 
-
 	for(int i = 1; i < (int)Lane.curveRight.size(); i++)
 	{
 		line(FRAME, Lane.curveRight[i-1], Lane.curveRight[i], CvScalar(255, 0, 0), 2);
+	}
+
+	for(int i = 1; i < (int)Lane.curveLeft.size(); i++)
+	{
+		line(FRAME, Lane.curveLeft[i-1], Lane.curveLeft[i], CvScalar(255, 0, 0), 2);
 	}
 
 	/*

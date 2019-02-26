@@ -911,7 +911,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	edgeMap.copyTo(image);
 	CurveDetector cd;
 
-	cv::Point r1, r2;
+	cv::Point r1, r2, l1, l2;
 
 	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
 	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
@@ -919,9 +919,34 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
 	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
 
+	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
+	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
+
+	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
+	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
+
+
+
 
 	mPtrLaneModel->curveRight.clear();
+
  	cd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
+
+ 	for (int i = 0; i < mPtrLaneModel->curveRight.size(); i++)
+ 	{
+ 		mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - edgeMap.rows;
+ 	}
+
+	mPtrLaneModel->curveLeft.clear();
+
+ 	cd.detectCurve(image, l1, l2, mPtrLaneModel->curveLeft);
+
+ 	for (int i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
+ 	{
+ 		mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - edgeMap.rows;
+ 	}
+
+
  	printf("%d \n", mPtrLaneModel->curveRight.size());
 
 

@@ -10,30 +10,29 @@ int CurveDetector::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vec
 {
 	cout << "detectCurve " << p1 << p2 << endl;
 
-	std::vector<Point> bestCurve;
-	int maxVal = 0;
+	int maxVal = -1;
 	Point2f vec(p2 - p1);
 	float len = sqrt(vec.x * vec.x + vec.y * vec.y);
 	vec /= len;
 
-	for (int xoffset = -30; xoffset <= 30; xoffset +=5)
+	p1 = p2;
+
+	for (int xoffset = -30; xoffset <= 30; xoffset +=15)
 	{
 		std::vector<Point> tmpCurve;
 		Point start = p1;
 		start.x += xoffset;
 
 		Point pos;
-		pos.x = p1.x + vec.x * 80.0;
-		pos.y = p1.y + vec.y * 80.0;
-
-		int value = computeCurve(img, p1, pos, tmpCurve);
+		pos.x = start.x + vec.x * 80.0;
+		pos.y = start.y + vec.y * 80.0;
+		int value = computeCurve(img, start, pos, tmpCurve);
 		if (value > maxVal)
 		{
 			maxVal = value;
-			bestCurve = tmpCurve;
+			curve = tmpCurve;
 		}
 
-		printf("tmpCurve.size = %d value = \n", tmpCurve.size(), value);
 	}
 
 	return maxVal;
@@ -45,7 +44,7 @@ int CurveDetector::computeCurve(const cv::UMat& img, Point p1, Point p2, std::ve
 	curve.push_back(p1);
 	curve.push_back(p2);
 	int confidence = 0;
-	MAX_STEPS_AMOUNT = 20; //TODO
+	MAX_STEPS_AMOUNT = 10; //TODO
 	for (int step = 0; step < MAX_STEPS_AMOUNT; step++)
 	{
 		std::vector<Point> points;
@@ -120,7 +119,6 @@ void CurveDetector::grabPoints(Point a, Point b, std::vector<Point> &points)
 
 inline int CurveDetector::isPointOutOfRange(Point a, int width, int height)
 {
-	cout << "isPointOutOfRange" << a << endl;
 	return ((a.x < 10) || (a.y < 10) || (a.x > (width - 10)) || (a.y > (height - 10)));
 }
 
@@ -134,7 +132,6 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 	vec /= len;
 
 	Point2f vecPerp = vec * 2.0;
-	vec.x = -vec.x;
 
 	for (int i = 0; i < 4; i++)
 	{
@@ -167,7 +164,7 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 				float newAng = atan(newVec.y / newVec.x);
 
 				float dif = abs(newAng - curAng) * 180.0 / 3.14;
-				if (dif > 5)
+				if (dif > 7)
 				{
 					printf("selectNextPoints(i = %d): dif = %f\n", i, dif);
 					continue;
