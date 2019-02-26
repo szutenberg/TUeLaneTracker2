@@ -75,7 +75,6 @@ int main(int argc, char* argv[]) /**
 
 	} // End parsing command line options
 
-	printf("text,SNRb,SNRp,width\n"); // TODO: remove it
 	if ((lReturn == 0) && (!lConfigFileName.empty()))
 	{
 		lReturn = readConfig(lConfigFileName, lPtrConfig.get());

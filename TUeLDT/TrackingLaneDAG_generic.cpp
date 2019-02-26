@@ -158,7 +158,7 @@ mProbMapFocussed        = mBufferPool->Probability[0];
 mGradTanFocussed        = mBufferPool->GradientTangent[0];
 #endif
 
-// always(?) Probability size = 3
+// Probability size depends on buffer_count in config
 for ( std::size_t i=1; i< mBufferPool->Probability.size(); i++ )
 {
 	mMask = mProbMapFocussed < mBufferPool->Probability[i];
@@ -193,42 +193,21 @@ mProfiler.start("COMPUTE_INTERSECTIONS");
 
 //Base Intersections
 subtract(mY_ICCS, mLaneFilter->BASE_LINE_ICCS, mIntBase, cv::noArray(), CV_32S);
-
-if (debugX)
-{
-	divide(mIntBase,mGradTanTemplate, mIntBase, SCALE_INTSEC_TAN, CV_32S);
-
-}
-else
-{
-	divide(mIntBase, mGradTanFocussed, mIntBase, SCALE_INTSEC_TAN, CV_32S);
-}
-
+divide(mIntBase, mGradTanFocussed, mIntBase, SCALE_INTSEC_TAN, CV_32S);
 add(mIntBase, mX_ICCS_SCALED, mIntBase);
+
+// divide(mIntBase,mGradTanTemplate, mIntBase, SCALE_INTSEC_TAN, CV_32S);
+// TODO - diving by mGradTanTemplate may give better results. It has to be investigated.
 
 //Purview Intersections
 subtract(mY_ICCS, mLaneFilter->PURVIEW_LINE_ICCS, mIntPurview, cv::noArray(), CV_32S);
-
-if (debugX)
-{
-	divide(mIntPurview,mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
-}
-else
-{
-	divide(mIntPurview,mGradTanTemplate, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
-}
-
-
+divide(mIntPurview, mGradTanTemplate, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
 add(mIntPurview, mX_ICCS_SCALED, mIntPurview);
 
+// divide(mIntPurview,mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
+// TODO - diving by mGradTanTemplate may give better results. It has to be investigated.
 
 bitwise_and(mBufferPool->Probability[mBufferPos], mFocusTemplate, mBufferPool->Probability[mBufferPos]);
-
-
-#ifdef DEBUG_SIZES
-	DEBUG_SIZE(mIntBase);
-	DEBUG_SIZE(mIntPurview);
-#endif
 
 #ifdef PROFILER_ENABLED
 mProfiler.end();
@@ -252,17 +231,10 @@ mProfiler.start("MASK_INVALID_BIN_IDS");
 	bitwise_and(mMask, mIntBase    <  mUPPER_LIMIT_BASE, 	mMask);
 	bitwise_and(mMask, mIntPurview <  mUPPER_LIMIT_PURVIEW, mMask);
 
-	cv::Mat nMask(mMask, cv::Rect(0, mMask.rows-1-debugZ, mMask.cols, debugZ) );
-	nMask = 0;
-
 	//^TODO: Put on the side thread
 	mHistBase      = cv::Mat::zeros(mLaneFilter->COUNT_BINS,  1 ,  CV_32S);
 	mHistPurview   = cv::Mat::zeros(mLaneFilter->COUNT_BINS,  1 ,  CV_32S);
 }
-
-#ifdef DEBUG_SIZES
-	DEBUG_SIZE(mMask);
-#endif
 
 #ifdef PROFILER_ENABLED
 mProfiler.end();
@@ -295,42 +267,6 @@ multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);
 	uint16_t   	lPurviewBinIdx;
 	int32_t    	lWeightBin;
 	
-	
-if (debugX)
-{
-	for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrWeights++ , lPtrMask++)
-	{
-
-		if(!(*lPtrMask == 0) )
-		{
-			lBaseBinIdx	    = (*lPtrIntBase    - mLOWER_LIMIT_BASE    + (mSTEP_BASE_SCALED   /2) )/mSTEP_BASE_SCALED;
-			lPurviewBinIdx	= (*lPtrIntPurview - mLOWER_LIMIT_PURVIEW + (mSTEP_PURVIEW_SCALED/2) )/mSTEP_PURVIEW_SCALED;
-			lWeightBin 	= *lPtrWeights;
-
-			assert((0<=lBaseBinIdx)&&(lBaseBinIdx<mHistBase.rows ));
-if (debugY)			printf("a,%d,%d,%d,%d\n", i/1280, i%1280, lBaseBinIdx, lPurviewBinIdx);
-			if ((i/1280) < 80)
-			{
-				// ignore
-			}
-			else if ((i/1280) < 125)
-			{
-				*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
-			}
-			else if ((i/1280) < 175)
-			{
-				*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
-				*(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
-			}
-			else
-			{
-				*(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
-			}
-		}
-	}
-}
-else
-{
 	for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrWeights++ , lPtrMask++)
 	{
 		if(!(*lPtrMask == 0) )
@@ -341,15 +277,12 @@ else
 			lWeightBin 	= *lPtrWeights;
 
 			assert((0<=lBaseBinIdx)&&(lBaseBinIdx<mHistBase.rows ));
-if (debugY)			printf("a,%d,%d,%d,%d\n", i/1280, i%1280, lBaseBinIdx, lPurviewBinIdx);
 
 			*(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
 			*(lPtrHistPurview    + lPurviewBinIdx)      += lWeightBin;
 		}
 	}
-}
 
-if (debugY) 	assert(false);
 }//Block Ends
 
 #ifdef PROFILER_ENABLED
@@ -542,7 +475,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 
 	mPosterior	 = 0;
 	mMaxPosterior = 0;
-int width;
+
 	// Save current values of VP
 	mVanishPt.V_prev = mVanishPt.V;
 	mVanishPt.H_prev = mVanishPt.H;
@@ -686,71 +619,12 @@ int width;
 						mVanishPt.H 	= lBIN_H;
 						mIdxPurview_LB  	= lIdx_LB;
 						mIdxPurview_RB  	= lIdx_RB;
-						width = lWidth_cm;
 					}
 
 				}
 			}
 		}
 	}
-
-	// SNR
-	// for base/purview:   (hist peaks chosen as boundary)/2   / (sum of hist on detected lane with margin of 7)/n;
-	int left = Models[lBestModelIdx].binIdxBoundary_left;
-	int right = Models[lBestModelIdx].binIdxBoundary_right;
-	int32_t signal = (lPtrHistBase[left] + lPtrHistBase[right]) / 2;
-	int32_t noise = 0;
-	float SNRb, SNRp;
-
-
-	int n = 0;
-	if ((right - left) < 15)
-	{
-		SNRb = -10;
-	}
-	else
-	{
-		for (int i = left+ 7; i < (right -7); i++, n++)
-		{
-			noise += lPtrHistBase[i];
-		}
-		noise /= n;
-
-		SNRb = (float)signal/noise;
-	}
-
-	n = 0;
-	noise = 0;
-	left = mIdxPurview_LB;
-	right = mIdxPurview_RB;
-	signal =  (lPtrHistPurview[left] + lPtrHistPurview[right]) / 2;
-
-
-	if ((right - left) < 15)
-	{
-		SNRp = -10;
-	}
-	else
-	{
-		for (int i = left+ 7; i < (right -7); i++, n++)
-		{
-			noise += lPtrHistPurview[i];
-		}
-		noise /= n;
-
-		SNRp = (float)signal/noise;
-	}
-
-
-	printf("SNR,%f,%f,%d\n", SNRb, SNRp, width);
-
-	if (mMaxPosterior == 0)
-	{
-		mVanishPt.V = mVanishPt.V_prev;
-		mVanishPt.H = mVanishPt.H_prev;
-	}
-
-	printf("\n width = %d\n", width);
 
 } // Scope Ends
 
@@ -977,11 +851,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 		//line(FrameDbg, lcd.debugV[i], lcd.debugV[i+1], CvScalar(255, 255, 0), 1);
 	}
 
-
-
-
 	imshow("debug", FrameDbg);
-
 
  	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
  	{
