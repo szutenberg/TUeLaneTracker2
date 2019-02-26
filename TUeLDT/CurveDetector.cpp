@@ -136,7 +136,7 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 	{
 		Point2f c(a);
 		c.x += vec.x * (1<<i) * 10.0;
-		c.y += vec.y * (1<<1) * 10.0;
+		c.y += vec.y * (1<<i) * 10.0;
 		Point e1(c + vecPerp);
 		Point e2(c - vecPerp);
 
