@@ -31,6 +31,8 @@
  #include "TrackingLaneDAG_generic.h"
 #endif
 
+extern int debugZ;
+
 
 StateMachine::StateMachine(unique_ptr<FrameFeeder> frameFeeder, const LaneTracker::Config& Config)
  : mQuitRequest(false),
@@ -240,7 +242,7 @@ int StateMachine::spin()
 		  {
 		       mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
 
-		       if(mConfig.display_graphics)
+		       if(mConfig.display_graphics && (debugZ == 0))
 		        mPtrFrameRenderer->drawLane(mPtrFrameFeeder->dequeueDisplay(), *mPtrLaneModel);
 		  }
 		  catch(const char* msg)

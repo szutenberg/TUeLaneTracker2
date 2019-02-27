@@ -22,7 +22,7 @@
 #include "CurveDetector.h"
 
 
-#define DEBUG_FRAMES
+//#define DEBUG_FRAMES
 
 #ifdef DEBUG_FRAMES
 	#include "opencv2/opencv.hpp"
@@ -723,8 +723,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 		<<  "Min Time: " << mProfiler.getMinTime("ASSIGN_LANE_MODEL")<<endl
 		<<"******************************"<<endl<<endl;
 #endif
-
-{
+if(1){
 	cv::Mat edgeMap;
 	cv::Mat tmp1;
 	cv::Mat sx;
@@ -739,7 +738,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	cv::Point minLoc;
 	cv::Point maxLoc;
 
-	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 5, 5, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
+	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 1, 1, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
 
 	cv::Mat kernel;
 
@@ -773,10 +772,10 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 	add(sx, sy, edgeMap);
 
 	minMaxLoc( edgeMap, &minVal, &maxVal, &minLoc, &maxLoc );
-	cout << minVal << "  " << maxVal << endl;
 
 	double div = maxVal/255;
 	edgeMap /= div;
+
 	edgeMap.convertTo(edgeMap, CV_8U);
 
 	cv::UMat image;
@@ -808,6 +807,9 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 
  	rcd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
  	lcd.detectCurve(image, l1, l2, mPtrLaneModel->curveLeft);
+
+ 	if (debugZ == 0)
+ 	{
 
 	cv::Mat FrameDbg;
 	cv::cvtColor(image, FrameDbg, cv::COLOR_GRAY2BGR);
@@ -862,8 +864,8 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
  	{
  		mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - edgeMap.rows;
  	}
-
- 	printf("======================================================\n");
+ 	}
+ 	//printf("======================================================\n");
 }
 
 
