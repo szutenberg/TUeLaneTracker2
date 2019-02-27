@@ -8,20 +8,15 @@ using namespace std;
 
 int CurveDetector::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve)
 {
-	cout << "detectCurve " << p1 << p2 << endl;
-
-	int maxVal = -1;
+	int maxVal = 0;
 	Point2f vec(p2 - p1);
 	float len = sqrt(vec.x * vec.x + vec.y * vec.y);
 	vec /= len;
 
-	p1 = p2;
-
 	for (int xoffset = -30 + left * 10; xoffset <= 30 + left * 10; xoffset +=10)
-	//int xoffset = 10;
 	{
 		std::vector<Point> tmpCurve;
-		Point start = p1;
+		Point start = p2;
 		start.x += xoffset;
 
 		Point pos;
@@ -40,15 +35,13 @@ int CurveDetector::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vec
 
 int CurveDetector::computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve)
 {
-	cout << "computeCurve" << p1 << p2 << endl;
+	//cout << "computeCurve" << p1 << p2 << endl;
 	curve.push_back(p1);
 	curve.push_back(p2);
 	int confidence = 0;
 	MAX_STEPS_AMOUNT = 20; //TODO
 	for (int step = 0; step < MAX_STEPS_AMOUNT; step++)
 	{
-		if (step == 0) lookingForFirstPoint = 1;
-		else lookingForFirstPoint = 0;
 		std::vector<Point> points;
 		points = selectNextPoints(img, p2, Point2f(p2 - p1));
 
@@ -127,14 +120,13 @@ inline int CurveDetector::isPointOutOfRange(Point a, int width, int height)
 
 std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a, Point2f vec)
 {
-	cout << "selectNextPoints" << a << vec << endl;
+	//cout << "selectNextPoints" << a << vec << endl;
 	std::vector<Point> res;
 
 	float len = sqrt(vec.x * vec.x + vec.y * vec.y);
 	vec /= len;
 
 	Point2f vecPerp = vec * 1.0;
-	if (lookingForFirstPoint) vecPerp *= 4.0;
 	vecPerp.x *= -1.0;
 
 	for (int i = 0; i < 4; i++)
@@ -158,7 +150,6 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 		grabPoints(e1, e2, candidatePoints);
 		this->debugV.push_back(e1);
 		this->debugV.push_back(e2);
-
 		for (Point pos : candidatePoints)
 		{
 			int val = img.getMat(ACCESS_READ).at<uchar>(pos);
@@ -169,9 +160,9 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 				float newAng = atan(newVec.y / newVec.x);
 
 				float dif = abs(newAng - curAng) * 180.0 / 3.14;
-				if (dif > 7 && (!lookingForFirstPoint))
+				if (dif > 7)
 				{
-					printf("selectNextPoints(i = %d): dif = %f\n", i, dif);
+					//printf("selectNextPoints(i = %d): dif = %f\n", i, dif);
 					continue;
 				}
 
@@ -182,22 +173,50 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point a,
 
 		if (maxPos.x) res.push_back(maxPos);
 	}
-
+	printf("%d\n", res.size());
 	// TODO - select only two
 	return res;
 }
 
-
 int CurveDetector::calcScore(const cv::UMat& img, Point a, Point b)
 {
 	int res = 0;
-	std::vector<Point> points;
-	grabPoints(a, b, points);
-	for (Point pos : points)
+
+	cout << "calcScore" << a << b << endl;
+
+	float slope = (float)(b.y - a.y) / (b.x - a.x);
+	int dirx = 0;
+	int diry = 0;
+
+	if (abs(slope) < 1)
 	{
-		res += img.getMat(ACCESS_READ).at<uchar>(pos);
+		dirx = 1;
+		if (a.x > b.x) swap(a, b);
+	}
+	else
+	{
+		diry = 1;
+		if (a.y > b.y) swap(a, b);
+		slope = 1 / slope;
 	}
 
-	return res / points.size();
+	int from = dirx * a.x + diry * a.y;
+	int to   = dirx * b.x + diry * b.y;
+
+	int counter = 0;
+
+	float p = diry * a.x + dirx * a.y;
+	for (int i = from; i <= to; i++, p+=slope)
+	{
+		for (int j = p - abs(slope); j <= p + abs(slope); j++, counter++)
+		{
+			// TODO: optimize - make two loops (dirx=0 and dirx=1)
+			Point pos(dirx * i + diry * j, dirx * j + diry * i);
+			res += img.getMat(ACCESS_READ).at<uchar>(pos);
+			cout << pos << endl;
+		}
+	}
+
+	return res / counter;
 }
 
