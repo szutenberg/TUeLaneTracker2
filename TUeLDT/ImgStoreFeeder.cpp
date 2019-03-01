@@ -19,6 +19,7 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 * ****************************************************************************/ 
 #include "FrameFeeder.h"
+#include "Helpers.h"
 
 ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 : mQueuesSync(true),
@@ -95,46 +96,6 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 								 });
 }
 
-// TODO - put into class
-struct sortingHelper{
-	int pos;
-	int value;
-};
-
-bool operator<(const sortingHelper a, const sortingHelper b) { return a.value < b.value; }
-
-void sortFileNames(vector<cv::String>& vec, vector<cv::String>& out)
-{
-	sortingHelper tmp;
-	vector<sortingHelper> sorter;
-
-	int i = 0;
-	for (cv::String str : vec)
-	{
-		tmp.pos = i++;
-		tmp.value = 0;
-		const char *cstr = str.c_str();
-		size_t it = str.rfind('/');
-		if (it == cv::String::npos) continue;
-
-		it++;
-		while((cstr[it] >= '0') && (cstr[it] <= '9'))
-		{
-			int digit = cstr[it] - '0';
-			tmp.value = tmp.value * 10 + digit;
-			it++;
-		}
-		sorter.push_back(tmp);
-	}
-
-	sort(sorter.begin(), sorter.end());
-
-	for (sortingHelper tmp : sorter)
-	{
-		out.push_back(vec[tmp.pos]);
-	}
-}
-
 
 void ImgStoreFeeder::parseSettings(string& srcStr)
 {
@@ -158,10 +119,9 @@ void ImgStoreFeeder::parseSettings(string& srcStr)
 			throw "mSkipFrames  must be a positive integer";
 	}
 
-	vector<cv::String> mFilesNotSorted;
-	glob(mFolder, mFilesNotSorted);
+	glob(mFolder, mFiles);
 
-	sortFileNames(mFilesNotSorted, mFiles);
+	Helpers::sortFileNames(mFiles);
 
 	if (mFiles.size() <= (uint32_t)mSkipFrames)
 	{
