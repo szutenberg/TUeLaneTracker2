@@ -1,6 +1,7 @@
 #include <SigInt.h>
 #include "FrameFeeder.h"
 #include "StateMachine.h"
+#include "Benchmark.h"
 #include "boost/program_options.hpp"
 
 using namespace std;
@@ -25,6 +26,7 @@ int main(int argc, char* argv[]) /**
 	FrameSource lFrameSource;
 	string lSourceStr;
 	string lConfigFileName;
+	string benchPath;
 
 	unique_ptr<LaneTracker::Config> lPtrConfig;
 	if (lReturn == 0) //create Configuration
@@ -51,7 +53,7 @@ int main(int argc, char* argv[]) /**
 		("debugX,x", po::value<int>(&debugX)->default_value(0),	"\t debug X")
 		("debugY,y", po::value<int>(&debugY)->default_value(0),	"\t debug Y")
 		("debugZ,z", po::value<int>(&debugZ)->default_value(0),	"\t debug Z")
-
+		("benchmark,b", po::value<string>(&benchPath)->default_value(""), "\t path to the directory with test sequences (for tusimple - path to clips/0313-1 etc)")
 		("Config,c", po::value<string>(&lConfigFileName)->default_value(""),
 				"\t yaml configuration file");
 
@@ -83,6 +85,15 @@ int main(int argc, char* argv[]) /**
 	// TODO: explain it in help
 	if (lSourceStr.find(".mp4") != string::npos) lFrameSource = FrameSource::STREAM;
 
+	if (!benchPath.empty())
+	{
+		printf("Initializing benchmark mode...\n");
+		Benchmark b(cv::String(benchPath), *lPtrConfig.get());
+		printf("Running...\n");
+		b.run();
+		return 0;
+	}
+
 	unique_ptr<FrameFeeder> lPtrFeeder;
 	if (lReturn == 0) //create FrameFeeder
 			{
@@ -94,7 +105,7 @@ int main(int argc, char* argv[]) /**
 
 	shared_ptr<SigInt> lPtrSigInt;
 	if (lReturn == 0) //create SigInt
-			{
+	{
 		lPtrSigInt = make_shared<SigInt>();
 		if (lPtrSigInt->sStatus == SigStatus::FAILURE) {
 			lReturn = -1;
