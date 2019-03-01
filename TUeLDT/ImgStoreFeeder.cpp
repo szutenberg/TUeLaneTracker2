@@ -91,38 +91,79 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
   });
 }
 
+// TODO - put into class
+struct sortingHelper{
+	int pos;
+	int value;
+};
+
+bool operator<(const sortingHelper a, const sortingHelper b) { return a.value < b.value; }
+
+void sortFileNames(vector<cv::String>& vec, vector<cv::String>& out)
+{
+	sortingHelper tmp;
+	vector<sortingHelper> sorter;
+
+	int i = 0;
+	for (cv::String str : vec)
+	{
+		tmp.pos = i++;
+		tmp.value = 0;
+		const char *cstr = str.c_str();
+		size_t it = str.rfind('/');
+		if (it == cv::String::npos) continue;
+
+		it++;
+		while((cstr[it] >= '0') && (cstr[it] <= '9'))
+		{
+			int digit = cstr[it] - '0';
+			tmp.value = tmp.value * 10 + digit;
+			it++;
+		}
+		sorter.push_back(tmp);
+	}
+
+	sort(sorter.begin(), sorter.end());
+
+	for (sortingHelper tmp : sorter)
+	{
+		out.push_back(vec[tmp.pos]);
+	}
+}
 
 
 void ImgStoreFeeder::parseSettings(string& srcStr)
 {
-   string lDelimiter = ",";
-   size_t lPos	     =  0 ;
+	string lDelimiter = ",";
+	size_t lPos	     =  0 ;
 
-   vector<string>  lTokens;
-   while ( (lPos = srcStr.find(lDelimiter) ) != string::npos )
-   {
-     lTokens.push_back(srcStr.substr(0, lPos));
-     srcStr.erase(0, lPos + lDelimiter.length() );
-   }
-   lTokens.push_back(srcStr);  //push_back the last substring too.
+	vector<string>  lTokens;
+	while ( (lPos = srcStr.find(lDelimiter) ) != string::npos )
+	{
+		lTokens.push_back(srcStr.substr(0, lPos));
+		srcStr.erase(0, lPos + lDelimiter.length() );
+	}
+	lTokens.push_back(srcStr);  //push_back the last substring too.
 
-   mFolder   = lTokens[0];
+	mFolder   = lTokens[0];
 
-   if(lTokens.size() == 2)
-   {
-     mSkipFrames  = stoi(lTokens[1], nullptr);
-     if (mSkipFrames < 0)
-     throw "mSkipFrames  must be a positive integer";
-   }
+	if(lTokens.size() == 2)
+	{
+		mSkipFrames  = stoi(lTokens[1], nullptr);
+		if (mSkipFrames < 0)
+			throw "mSkipFrames  must be a positive integer";
+	}
 
+	vector<cv::String> mFilesNotSorted;
+	glob(mFolder, mFilesNotSorted);
 
-    	glob(mFolder, mFiles);
+	sortFileNames(mFilesNotSorted, mFiles);
 
-   if (mFiles.size() <= (uint32_t)mSkipFrames)
-   {
-      throw "No files found OR the total number of image files is less than mSkipFrames.";
-   }
- 
+	if (mFiles.size() <= (uint32_t)mSkipFrames)
+	{
+		throw "No files found OR the total number of image files is less than mSkipFrames.";
+	}
+
 }
 
 void ImgStoreFeeder::enqueue(cv::UMat& frame, vector<cv::UMat>& queue)
