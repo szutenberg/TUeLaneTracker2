@@ -29,66 +29,70 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
   mSkipFrames(0),
   mFrameCount(0)
 {
-   parseSettings(sourceStr);
-  
-   mAsyncGrabber = std::thread([this]
-   {
-     WriteLock  lLock(mMutex, std::defer_lock);	
-     mFrameCount = mSkipFrames;
+	parseSettings(sourceStr);
 
-     while(!Stopped.load())
-    {
-	  if(!Paused.load())
-       {
-          #ifdef PROFILER_ENABLED
-	   mProfiler.start("FRAME_READING");
-          #endif
+	mAsyncGrabber = std::thread([this]
+								 {
+		WriteLock  lLock(mMutex, std::defer_lock);
+		mFrameCount = mSkipFrames;
 
-          cv::UMat lFrame, lFrameGRAY;
+		while(!Stopped.load())
+		{
+			if(!Paused.load())
+			{
+#ifdef PROFILER_ENABLED
+				mProfiler.start("FRAME_READING");
+#endif
 
-          lLock.lock(); //protecting mFiles and mFrameCount shared variables.
-           lFrame  		= imread(mFiles[mFrameCount]).getUMat(cv::ACCESS_READ);
-           if (!lFrame.empty())
-	   {
-             cv::cvtColor(lFrame, lFrameGRAY, CV_RGB2GRAY);
-	   }
-          lLock.unlock();
+				cv::UMat lFrame, lFrameGRAY;
 
-	  //Put the frames in the queue for the stateMachine
-          enqueue(lFrameGRAY, mProcessQueue); //Thread-safe method to enqueue processing Frames
-          enqueue(lFrame,     mDisplayQueue); //Thread-safe method to enqueue display Frames
+				lLock.lock(); //protecting mFiles and mFrameCount shared variables.
+				lFrame  		= imread(mFiles[mFrameCount]).getUMat(cv::ACCESS_READ);
+				if (!lFrame.empty())
+				{
+					cv::cvtColor(lFrame, lFrameGRAY, CV_RGB2GRAY);
+				}
+				lLock.unlock();
 
-          #ifdef PROFILER_ENABLED
-           LOG_INFO_(LDTLog::STATE_MACHINE_LOG) <<endl
-           <<"******************************"<<endl
-           <<  "Frame enqueued:"<<endl
-           << (std::string)(mFiles[mFrameCount])<<endl
-	   << mFrameCount<<"/"<<mFiles.size()<<endl
-           <<"******************************"<<endl<<endl;
-	  #endif
+				//Put the frames in the queue for the stateMachine
+				enqueue(lFrameGRAY, mProcessQueue); //Thread-safe method to enqueue processing Frames
+				enqueue(lFrame,     mDisplayQueue); //Thread-safe method to enqueue display Frames
 
-          if(mFrameCount+1 < mFiles.size())
-	  {
-             mFrameCount ++;
-          }
+#ifdef PROFILER_ENABLED
+				LOG_INFO_(LDTLog::STATE_MACHINE_LOG) <<endl
+						<<"******************************"<<endl
+						<<  "Frame enqueued:"<<endl
+						<< (std::string)(mFiles[mFrameCount])<<endl
+						<< mFrameCount<<"/"<<mFiles.size()<<endl
+						<<"******************************"<<endl<<endl;
+#endif
 
-          #ifdef PROFILER_ENABLED
-          mProfiler.end();
-          LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
-                                          <<"******************************"<<endl
-                                          <<  "Frame Reading Time." <<endl
-                                          <<  "Max Time: " << mProfiler.getMaxTime("FRAME_READING")<<endl
-                                          <<  "Avg Time: " << mProfiler.getAvgTime("FRAME_READING")<<endl
-                                          <<  "Min Time: " << mProfiler.getMinTime("FRAME_READING")<<endl
-                                          <<"******************************"<<endl<<endl;
-                                          #endif
-      }
+				if(mFrameCount+1 < mFiles.size())
+				{
+					mFrameCount ++;
+				}
+				else
+				{
+					  Stopped.store(true);
+				}
 
-      if(mSLEEP_ms >0)
-      std::this_thread::sleep_for(std::chrono::milliseconds(mSLEEP_ms));
-   }
+#ifdef PROFILER_ENABLED
+				mProfiler.end();
+				LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
+						<<"******************************"<<endl
+						<<  "Frame Reading Time." <<endl
+						<<  "Max Time: " << mProfiler.getMaxTime("FRAME_READING")<<endl
+						<<  "Avg Time: " << mProfiler.getAvgTime("FRAME_READING")<<endl
+						<<  "Min Time: " << mProfiler.getMinTime("FRAME_READING")<<endl
+						<<"******************************"<<endl<<endl;
+#endif
+			}
 
-  });
+			if(mSLEEP_ms >0)
+				std::this_thread::sleep_for(std::chrono::milliseconds(mSLEEP_ms));
+		}
+
+								 });
 }
 
 // TODO - put into class
