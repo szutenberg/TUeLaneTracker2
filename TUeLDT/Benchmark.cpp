@@ -50,13 +50,40 @@ Benchmark::~Benchmark() {
 	// TODO Auto-generated destructor stub
 }
 
+vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in)
+{
+
+
+	int i = in.size() - 1;
+	vector<cv::Point> out;
+
+	if (i <= 1) return out;
+
+	for (int ypos : h_samples)
+	{
+		while ((in[i-1].y < ypos) && (i > 1))
+		{
+			i--;
+		}
+
+		cv::Point2f vec(in[i-1] - in[i]);
+		cv::Point pos(in[i]);
+		pos.x += ((float)(in[i-1].x - in[i].x)) * (ypos - in[i].y) / (in[i-1].y - in[i].y) + 0.5;
+		if (pos.x < 0) pos.x = -2;
+		if (pos.x > (mConfig.cam_res_h - 1)) pos.x = -2;
+		pos.y = ypos;
+
+		out.push_back(pos);
+	}
+
+	return out;
+}
+
 
 int Benchmark::run()
 {
 	for (cv::String testPath : mTestPaths)
 	{
-		printf("%s\n", testPath.c_str());
-
 		mPtrFrameFeeder = unique_ptr<FrameFeeder>(new ImgStoreFeeder(testPath));
 	    mPtrBufferingState.reset(new BufferingState<BufferingDAG_generic>(mConfig));
 		mPtrBootingState = nullptr;
@@ -79,6 +106,44 @@ int Benchmark::run()
 
 		mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
 		mPtrFrameRenderer->drawLane(mPtrFrameFeeder->dequeueDisplay(), *mPtrLaneModel);
+
+
+		printf("{\"lanes\": [");
+
+		vector<cv::Point> dl, dr;
+		dl = generateHSamplesPoints(mPtrLaneModel->curveLeft);
+		dr = generateHSamplesPoints(mPtrLaneModel->curveRight);
+
+		if (dl.size() == h_samples.size())
+		{
+			printf("[");
+			for (size_t i = 0; i < dl.size(); i++)
+			{
+				if (i) printf(", ");
+				printf("%d", dl[i].x);
+			}
+			printf("]");
+			if (dr.size() == h_samples.size()) printf(",");
+		}
+
+		if (dr.size() == h_samples.size())
+		{
+			printf("[");
+			for (size_t i = 0; i < dr.size(); i++)
+			{
+				if (i) printf(", ");
+				printf("%d", dr[i].x);
+			}
+			printf("]");
+		}
+		printf("]");
+		printf(", \"h_samples\": [");
+		for (size_t i = 0; i < h_samples.size(); i++)
+		{
+			if (i) printf(", ");
+			printf("%d", h_samples[i]);
+		}
+		printf("], \"raw_file\": \"%s%s\"}\n", testPath.c_str(), "/20.jpg");
 	}
 
 	return 0;
