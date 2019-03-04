@@ -87,9 +87,9 @@ int main(int argc, char* argv[]) /**
 
 	if (!benchPath.empty())
 	{
-		printf("Initializing benchmark mode...\n");
+		//printf("Initializing benchmark mode...\n");
 		Benchmark b(cv::String(benchPath), *lPtrConfig.get());
-		printf("Running...\n");
+		//printf("Running...\n");
 		b.run();
 		return 0;
 	}

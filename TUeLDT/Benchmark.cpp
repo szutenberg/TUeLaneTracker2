@@ -19,7 +19,7 @@ mPtrVanishingPtFilter(nullptr),
 mPtrTemplates(nullptr),
 mPtrLaneModel(nullptr)
 {
-	for (int val = 240; val <= 710; val+= 10) h_samples.push_back(val);
+	for (int val = 160; val <= 710; val+= 10) h_samples.push_back(val);
 
 	mPtrBootingState   = unique_ptr<InitState>(new InitState(mConfig));
 	mPtrLaneFilter.reset(nullptr);
@@ -41,7 +41,7 @@ mPtrLaneModel(nullptr)
 		str = str.substr(0, pos);
 	}
 	Helpers::sortFileNames(mTestPaths);
-	printf("Detected %lu sequences.\n", mTestPaths.size());
+	// printf("Detected %lu sequences.\n", mTestPaths.size());
 
 
 }
