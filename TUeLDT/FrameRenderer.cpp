@@ -90,7 +90,21 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	//Draw Purview Line
 	line(FRAME, Point(0, mPURVIEW_LINE_ICS),
 			Point(FRAME.cols, mPURVIEW_LINE_ICS), CvScalar(0, 0, 0), 1);
+	
+	for(int i = 1; i < (int)Lane.benchL.size(); i++)
+	{
+		if (Lane.benchL[i-1].x == -2) continue;
+		if (Lane.benchL[i].x == -2) continue;
+		line(FRAME, Lane.benchL[i-1], Lane.benchL[i], CvScalar(0, 0, 255), 2);
+	}
 
+	for(int i = 1; i < (int)Lane.benchR.size(); i++)
+	{
+		if (Lane.benchR[i-1].x == -2) continue;
+		if (Lane.benchR[i].x == -2) continue;
+		line(FRAME, Lane.benchR[i-1], Lane.benchR[i], CvScalar(0, 0, 255), 2);
+	}
+	
 	for(int i = 1; i < (int)Lane.curveRight.size(); i++)
 	{
 		line(FRAME, Lane.curveRight[i-1], Lane.curveRight[i], CvScalar(255, 0, 0), 2);
@@ -100,6 +114,8 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	{
 		line(FRAME, Lane.curveLeft[i-1], Lane.curveLeft[i], CvScalar(255, 0, 0), 2);
 	}
+
+
 
 	/*
 	// Highlight region below Horizon

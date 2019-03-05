@@ -50,10 +50,8 @@ Benchmark::~Benchmark() {
 	// TODO Auto-generated destructor stub
 }
 
-vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in)
+vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in, int ymin)
 {
-
-
 	int i = in.size() - 1;
 	vector<cv::Point> out;
 
@@ -72,6 +70,8 @@ vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in)
 		if (pos.x < 0) pos.x = -2;
 		if (pos.x > (mConfig.cam_res_h - 1)) pos.x = -2;
 		pos.y = ypos;
+
+		if (pos.y < ymin) pos.x = -2;
 
 		out.push_back(pos);
 	}
@@ -105,34 +105,37 @@ int Benchmark::run()
 		}
 
 		mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
+
+		mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveLeft, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+		mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveRight, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+
+
 		mPtrFrameRenderer->drawLane(mPtrFrameFeeder->dequeueDisplay(), *mPtrLaneModel);
 
 
 		printf("{\"lanes\": [");
 
-		vector<cv::Point> dl, dr;
-		dl = generateHSamplesPoints(mPtrLaneModel->curveLeft);
-		dr = generateHSamplesPoints(mPtrLaneModel->curveRight);
 
-		if (dl.size() == h_samples.size())
+
+		if (mPtrLaneModel->benchL.size() == h_samples.size())
 		{
 			printf("[");
-			for (size_t i = 0; i < dl.size(); i++)
+			for (size_t i = 0; i < mPtrLaneModel->benchL.size(); i++)
 			{
 				if (i) printf(", ");
-				printf("%d", dl[i].x);
+				printf("%d", mPtrLaneModel->benchL[i].x);
 			}
 			printf("]");
-			if (dr.size() == h_samples.size()) printf(",");
+			if (mPtrLaneModel->benchR.size() == h_samples.size()) printf(",");
 		}
 
-		if (dr.size() == h_samples.size())
+		if (mPtrLaneModel->benchR.size() == h_samples.size())
 		{
 			printf("[");
-			for (size_t i = 0; i < dr.size(); i++)
+			for (size_t i = 0; i < mPtrLaneModel->benchR.size(); i++)
 			{
 				if (i) printf(", ");
-				printf("%d", dr[i].x);
+				printf("%d", mPtrLaneModel->benchR[i].x);
 			}
 			printf("]");
 		}

@@ -58,6 +58,9 @@ public:
 	vector<cv::Point>   curveLeft;
 	vector<cv::Point>	curveRight;
 
+	vector<cv::Point> benchL;
+	vector<cv::Point> benchR;
+
 	VanishingPt 	vanishingPt; 		/*< Selected, according to max-posterior, VanishingPoint in Image-Center-CS [pixel] */
 
 	float   	width_cm;
