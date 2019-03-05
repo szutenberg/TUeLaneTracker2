@@ -20,6 +20,7 @@
 #include "TrackingLaneDAG_generic.h"
 #include "ScalingFactors.h"
 #include "CurveDetector.h"
+#include "CurveDetector2.h"
 
 
 //#define DEBUG_FRAMES
@@ -871,8 +872,31 @@ else if (debugY == 1)
 	cv::Mat out;
 	//cv::Mat out2;
 
+	cv::Mat hsv;
+	cv::Mat yellow_lines;
+	cv::Mat weak_yellow_lines;
+	cv::Mat tmp;
+	cv::Mat colors;
 
+    cvtColor(FrameRGB, hsv, COLOR_BGR2HSV);
 
+/*
+    inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
+    inRange(hsv, Scalar(0, 70, 50), Scalar(180, 255, 255), colors);
+    colors -= yellow_lines; // we remove colors, excepting yellow
+    */
+    Mat channels[3]; // channels[2] is V
+    split(hsv, channels);
+  /*  colors = 255 - colors;
+	bitwise_and(colors, channels[2], channels[2]);
+*/
+	int lRowIndex	= mCAMERA.RES_VH(0) -mSPAN;
+	cv::Rect lROI;
+
+	//Define ROI from the Input Image
+	lROI = cv::Rect(0, lRowIndex, mCAMERA.RES_VH(1), mSPAN);
+
+	channels[2](lROI).copyTo(mFrameGRAY_ROI);
 
 	double minVal;
 	double maxVal;
@@ -892,9 +916,9 @@ else if (debugY == 1)
 
 	// remove huge white objects (in x axis)
 	cv::Mat kernel;
-	int kernelSize = 72;
+	int kernelSize = 96;
 
-	float c = 1.0 / ((kernelSize-19)) * 1.1;
+	float c = 1.0 / ((kernelSize-19)) * 1.05;
 	cv::Scalar coef(c);
 	kernel = Mat(1, kernelSize, CV_32F, coef);
 
@@ -912,16 +936,152 @@ else if (debugY == 1)
 
 	mask = bigobj < equalized16;
 	bitwise_and(mask, equalized, equalized);
-	mask = equalized > 200;
+	mask = equalized > 220;
 	bitwise_and(mask, equalized, equalized);
-	equalized -= 200;
+	equalized -= 220;
 
-	multiply(equalized, equalized, equalized, 255.0/(55*55), CV_8U);
-
-	imshow("bigobj", bigobj);
-	imshow("equalized", equalized);
+	multiply(equalized, equalized, equalized, 255.0/(35*35)/3, CV_8U);
 
 
+	static cv::Mat prev;
+	static cv::Mat prev2;
+
+
+	if (!prev.cols)
+	{
+		equalized.copyTo(prev);
+		equalized.copyTo(prev2);
+	}
+
+
+	equalized.copyTo(tmp);
+	add(equalized, prev, tmp);
+	add(prev2, tmp, tmp);
+
+	cv::UMat utmp;
+
+	tmp.copyTo(utmp);
+
+	imshow("equalized", tmp);
+
+
+	CurveDetector2 lcd, rcd;
+
+	cv::Point r1, r2, l1, l2;
+
+	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
+	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + tmp.rows;
+
+	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
+	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + tmp.rows;
+
+	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
+	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + tmp.rows;
+
+	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
+	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + tmp.rows;
+
+	lcd.left = 1;
+	rcd.left = -1;
+
+	mPtrLaneModel->curveRight.clear();
+	mPtrLaneModel->curveLeft.clear();
+	rcd.debugV.clear();
+	lcd.debugV.clear();
+
+	rcd.detectCurve(utmp, r1, r2, mPtrLaneModel->curveRight);
+	lcd.detectCurve(utmp, l1, l2, mPtrLaneModel->curveLeft);
+
+	if (debugZ == 0)
+	{
+
+		cv::Mat FrameDbg;
+		cv::cvtColor(tmp, FrameDbg, cv::COLOR_GRAY2BGR);
+
+		cv::Point c1(-3, 0);
+		cv::Point c2(3, 0);
+		cv::Point c3(0, 3);
+		cv::Point c4(0, -3);
+
+
+		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
+		{
+			line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
+		}
+
+		for(int i = 1; i < (int)mPtrLaneModel->curveLeft.size(); i++)
+		{
+			line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
+		}
+
+
+		for (Point pt : mPtrLaneModel->curveRight)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		for (Point pt : mPtrLaneModel->curveLeft)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		imshow("debug", FrameDbg);
+
+		for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
+		{
+			mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - tmp.rows;
+		}
+
+		for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
+		{
+			mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - tmp.rows;
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+	prev2 = prev;
+	prev = equalized;
+
+
+
+
+
+
+}
+else if (debugY == 2)
+{
+	cv::Mat hsv;
+	cv::Mat yellow_lines;
+	cv::Mat weak_yellow_lines;
+
+	cv::Mat colors;
+
+    cvtColor(FrameRGB, hsv, COLOR_BGR2HSV);
+
+
+    inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
+    inRange(hsv, Scalar(0, 70, 50), Scalar(180, 255, 255), colors);
+    colors -= yellow_lines; // we remove colors, excepting yellow
+    Mat channels[3]; // channels[2] is V
+    split(hsv, channels);
+    colors = 255 - colors;
+	bitwise_and(colors, channels[2], channels[2]);
+
+
+	imshow("out", channels[2]);
 
 }
 
