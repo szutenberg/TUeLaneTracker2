@@ -77,19 +77,15 @@ void StreamFeeder::captureThread()
 	 mProfiler.start("FRAME_READING");
       	#endif
 
-     	cv::UMat lFrame, lFrameGRAY;
+     	cv::UMat lFrame, lFrame2;
 
 	try
 	{
           inputCapture >> lFrame;
-          if (!lFrame.empty())
-          {
-           cv::cvtColor(lFrame, lFrameGRAY, CV_RGB2GRAY);
-          }
-
+          lFrame.copyTo(lFrame2);
 	  //Put the frames in the queue for the stateMachine
-          enqueue(lFrameGRAY, mProcessQueue); //Thread-safe method to enqueue processing Frames
-          enqueue(lFrame,     mDisplayQueue); //Thread-safe method to enqueue display Frames
+          enqueue(lFrame, mProcessQueue); //Thread-safe method to enqueue processing Frames
+          enqueue(lFrame2, mDisplayQueue); //Thread-safe method to enqueue display Frames
 
   	  #ifdef PROFILER_ENABLED
   	    mProfiler.end();

@@ -77,6 +77,7 @@ void BufferingState<GRAPH>::run(cv::UMat Frame)
 {
   try
   {
+    cv::cvtColor(Frame, Frame, CV_RGB2GRAY);
     mGraph.execute(Frame);
     this->StateCounter++;
   }

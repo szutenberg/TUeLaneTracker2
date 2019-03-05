@@ -127,7 +127,7 @@ public:
 	int  init_DAG(const Templates & TEMPLATES, const size_t & BUFFER_SIZE);
 
 	/** executes the Directed Acyclic Graph*/
-	void execute(cv::UMat& FrameGRAY);  
+	void execute(cv::UMat& FrameRGB);
 	
    	BufferingDAG_generic (BufferingDAG_generic && bufferingGraph)
 	: mCAMERA(bufferingGraph.mCAMERA)

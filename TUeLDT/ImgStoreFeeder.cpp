@@ -45,19 +45,17 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 				mProfiler.start("FRAME_READING");
 #endif
 
-				cv::UMat lFrame, lFrameGRAY;
+				cv::UMat lFrame, lFrame2;
 
 				lLock.lock(); //protecting mFiles and mFrameCount shared variables.
 				lFrame  		= imread(mFiles[mFrameCount]).getUMat(cv::ACCESS_READ);
-				if (!lFrame.empty())
-				{
-					cv::cvtColor(lFrame, lFrameGRAY, CV_RGB2GRAY);
-				}
 				lLock.unlock();
 
+				lFrame.copyTo(lFrame2);
+
 				//Put the frames in the queue for the stateMachine
-				enqueue(lFrameGRAY, mProcessQueue); //Thread-safe method to enqueue processing Frames
-				enqueue(lFrame,     mDisplayQueue); //Thread-safe method to enqueue display Frames
+				enqueue(lFrame, mProcessQueue); //Thread-safe method to enqueue processing Frames
+				enqueue(lFrame2,     mDisplayQueue); //Thread-safe method to enqueue display Frames
 
 #ifdef PROFILER_ENABLED
 				LOG_INFO_(LDTLog::STATE_MACHINE_LOG) <<endl

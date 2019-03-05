@@ -93,8 +93,11 @@ int TrackingLaneDAG_generic::init_DAG(LaneFilter* laneFilter, VanishingPtFilter*
 }
 
 
-void TrackingLaneDAG_generic::execute(cv::UMat& FrameGRAY)
+void TrackingLaneDAG_generic::execute(cv::UMat& FrameRGB)
 {
+	cv::UMat FrameGRAY;
+    cv::cvtColor(FrameRGB, FrameGRAY, CV_RGB2GRAY);
+
 	BufferingDAG_generic::execute(FrameGRAY);
 
 #ifdef PROFILER_ENABLED
