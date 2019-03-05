@@ -38,7 +38,7 @@ int CurveDetector::computeCurve(const cv::UMat& img, Point p1, Point p2, std::ve
 		std::vector<Point> points;
 		points = selectNextPoints(img, p2, Point2f(p2 - p1));
 
-		int maxVal = 50*160;
+		int maxVal = 20*160;
 		Point maxPos(0,0);
 
 		for (Point pc1 : points)
@@ -59,7 +59,7 @@ int CurveDetector::computeCurve(const cv::UMat& img, Point p1, Point p2, std::ve
 				int score2 = calcScore(img, pc1, pc2);
 
 				int value = score1 * (100 + len1) + score2 * (100 + len2);
-				if ((score1 + score2) < 50) continue;
+				if ((score1 + score2) < 30) continue;
 
 				if (value > maxVal)
 				{
@@ -129,7 +129,7 @@ std::vector<Point> CurveDetector::selectNextPoints(const cv::UMat& img, Point pt
 	Point2f vecPerp = vec;
 	vecPerp.x *= -1.0;
 
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < 5; i++)
 	{
 		Point2f c(pt);
 		float len = (1<<i) * 15.0;
