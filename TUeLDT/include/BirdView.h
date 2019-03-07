@@ -29,7 +29,7 @@ public:
 	BirdView();
 	virtual ~BirdView();
 
-	bool configureTransform(Point l1, Point l2, Point r1, Point r2, int maxLen, int width, int height);
+	bool configureTransform(Point l1, Point l2, Point r1, Point r2, int maxH, int width, int height);
 
 	Mat applyTransformation(Mat img);
 	bool invertPoints(std::vector<Point>& in, std::vector<Point> &out);

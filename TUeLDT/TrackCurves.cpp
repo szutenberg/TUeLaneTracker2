@@ -150,7 +150,7 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 	{
 		Mat output;
 		BirdView bird;
-		bird.configureTransform(l1, l2, r1, r2, -1, mFrameGRAY_ROI.cols, mFrameGRAY_ROI.rows);
+		bird.configureTransform(l1, l2, r1, r2, 600, mFrameGRAY_ROI.cols, mFrameGRAY_ROI.rows);
 		output = bird.applyTransformation(channels[CH_VALUE](lROI));
 
 	    if (debugX == 0) imshow("Output", output);

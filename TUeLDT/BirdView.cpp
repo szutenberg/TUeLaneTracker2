@@ -8,9 +8,7 @@
 #include "BirdView.h"
 
 BirdView::BirdView(){
-	// TODO Auto-generated constructor stub
-    // Lambda Matrix
-    //lambda = Mat( 2, 4, CV_32FC1 );
+
 }
 
 
@@ -40,7 +38,7 @@ Point2f BirdView::findCrossPoint(Point a1, Point a2, Point b1, Point b2)
 }
 
 
-bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int maxLen, int width, int height)
+bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int maxH, int width, int height)
 {
 	Point2f crossPoint = findCrossPoint(l1, l2, r1, r2);
 
@@ -69,6 +67,10 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 	Point2f tmpV = crossPoint - cc;
 	tmpV *= 0.95;
 
+	float tmpH = sqrt(tmpV.x*tmpV.x + tmpV.y*tmpV.y);
+	std::cout << "tmpH = " << tmpH << std::endl;
+	if (tmpH > maxH) tmpV /= tmpH / maxH;
+
 	Point2f dd = cc + tmpV;
 
 	Point2f kl = findCrossPoint(l1, l2, dd, dd + (vr - vl));
@@ -76,18 +78,9 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 
 	Point2f el = kl - (kr - kl);
 	Point2f er = kr + (kr - kl);
-	//line(FrameDbg, Point(el), Point(er), CvScalar(0, 0, 200), 2);
+
 	Point2f bl = vl - (vr - vl);
 	Point2f br = vr + (vr - vl);
-
-    //Input and Output Image;
-    //Mat input, output;
-
-    //channels[CH_VALUE](lROI).copyTo(input);
-   // tmp.copyTo(input);
-
-    // Set the lambda matrix the same type and size as input
-    //lambda = Mat::zeros( input.rows, input.cols, input.type() );
 
     // Note that points in inputQuad and outputQuad have to be from top-left in clockwise order
     mInputQuad[0] = el;
@@ -116,6 +109,8 @@ Mat BirdView::applyTransformation(Mat img)
 
 bool BirdView::invertPoints(std::vector<Point>& in, std::vector<Point> &out)
 {
+	// TODO
+
 	return false;
 }
 
