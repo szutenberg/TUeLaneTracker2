@@ -876,6 +876,23 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 		cv::Point c3(0, 3);
 		cv::Point c4(0, -3);
 
+		for (vector<cv::Point> v : rcd.debugCurves)
+		{
+			for (size_t i = 1; i < v.size(); i++)
+			{
+				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
+			}
+		}
+
+		for (vector<cv::Point> v : lcd.debugCurves)
+		{
+			for (size_t i = 1; i < v.size(); i++)
+			{
+				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
+			}
+		}
+
+
 		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
 		{
 			line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
