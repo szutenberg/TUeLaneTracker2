@@ -23,16 +23,9 @@ public:
 	int detectCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
 	void grabPoints(Point a, Point b, std::vector<Point> &points);
 	std::vector<Point> selectNextPoints(const cv::UMat& img, Point a, Point2f vec, int step);
-	int calcScore(const cv::UMat& img, Point a, Point b);
+	int calcScore(const cv::UMat& img, Point a, Point b, float d);
 	int computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
 	int left;
-	std::vector<Point> debugV;
-	int lookingForFirstPoint;
-
-
-
-
-
 
 
 };

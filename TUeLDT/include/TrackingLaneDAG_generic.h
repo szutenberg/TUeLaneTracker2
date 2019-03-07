@@ -94,6 +94,9 @@ private:
 	cv::Mat 		mTransitLaneFilter;
 	cv::Mat 		mTransitVpFilter;
 
+	cv::Mat buffer[5];
+	int bufferIt;
+
 	BaseHistogramModel	mBaseHistModel;  	/**< Selected Base-Histogram Model */
 	unique_ptr<LaneModel>   mPtrLaneModel;		/**< The detected Lane-Model */
 

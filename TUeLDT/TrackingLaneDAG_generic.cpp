@@ -728,242 +728,117 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 		<<"******************************"<<endl<<endl;
 #endif
 
-
-
-if (debugY == 0){
-	cv::Mat edgeMap;
-	cv::Mat tmp1;
-	cv::Mat sx;
-	cv::Mat sy;
-	cv::Mat tmp2;
-
-	mapCopy.copyTo(edgeMap);
-	edgeMap.convertTo(edgeMap, CV_32F);
-
-	double minVal;
-	double maxVal;
-	cv::Point minLoc;
-	cv::Point maxLoc;
-
-	GaussianBlur( edgeMap, edgeMap, cv::Size( 5, 5 ), 1, 1, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
-
-	cv::Mat kernel;
-
-	kernel = cv::Mat::ones(3, 3, CV_32F);
-
-	kernel.at<float>(0,0) = 0.125;
-	kernel.at<float>(0,1) = 0;
-	kernel.at<float>(0,2) = -0.125;
-	kernel.at<float>(1,0) = 0.25;
-	kernel.at<float>(1,1) = 0;
-	kernel.at<float>(1,2) = -0.25;
-	kernel.at<float>(2,0) = 0.125;
-	kernel.at<float>(2,1) = 0;
-	kernel.at<float>(2,2) = -0.125;
-	filter2D(edgeMap, sx, CV_32F, kernel);
-
-	kernel.at<float>(0,0) = 0.125;
-	kernel.at<float>(0,1) = 0.25;
-	kernel.at<float>(0,2) = 0.125;
-	kernel.at<float>(1,0) = 0;
-	kernel.at<float>(1,1) = 0;
-	kernel.at<float>(1,2) = 0;
-	kernel.at<float>(2,0) = -0.125;
-	kernel.at<float>(2,1) = -0.250;
-	kernel.at<float>(2,2) = -0.125;
-	filter2D(edgeMap, sy, CV_32F, kernel);
-
-	multiply(sx, sx, sx, CV_32F);
-	multiply(sy, sy, sy, CV_32F);
-
-	add(sx, sy, edgeMap);
-
-	minMaxLoc( edgeMap, &minVal, &maxVal, &minLoc, &maxLoc );
-
-	double div = maxVal/255;
-	edgeMap /= div;
-
-	edgeMap.convertTo(edgeMap, CV_8U);
-
-	cv::UMat image;
-	edgeMap.copyTo(image);
-	CurveDetector lcd, rcd;
-
-	cv::Point r1, r2, l1, l2;
-
-	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
-	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
-
-	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
-	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
-
-	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
-	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
-
-	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
-	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameGRAY.rows + edgeMap.rows;
-
-	lcd.left = 1;
-	rcd.left = -1;
-
-	mPtrLaneModel->curveRight.clear();
-	mPtrLaneModel->curveLeft.clear();
-	rcd.debugV.clear();
-	lcd.debugV.clear();
-
-	rcd.detectCurve(image, r1, r2, mPtrLaneModel->curveRight);
-	lcd.detectCurve(image, l1, l2, mPtrLaneModel->curveLeft);
-
-	if (debugZ == 0)
-	{
-
-		cv::Mat FrameDbg;
-		cv::cvtColor(image, FrameDbg, cv::COLOR_GRAY2BGR);
-
-		cv::Point c1(-3, 0);
-		cv::Point c2(3, 0);
-		cv::Point c3(0, 3);
-		cv::Point c4(0, -3);
-
-
-		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
-		{
-			line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
-		}
-
-		for(int i = 1; i < (int)mPtrLaneModel->curveLeft.size(); i++)
-		{
-			line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
-		}
-
-
-		for (Point pt : mPtrLaneModel->curveRight)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-		for (Point pt : mPtrLaneModel->curveLeft)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-		imshow("debug", FrameDbg);
-
-		for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
-		{
-			mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - edgeMap.rows;
-		}
-
-		for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
-		{
-			mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - edgeMap.rows;
-		}
-	}
-}
-else if (debugY == 1)
-{
-	cv::Mat equalized;
-	cv::Mat equalized16;
-
 	cv::Mat mask;
 	cv::Mat filtered;
 	cv::Mat out;
-	//cv::Mat out2;
 
 	cv::Mat hsv;
-	cv::Mat yellow_lines;
-	cv::Mat weak_yellow_lines;
 	cv::Mat tmp;
 	cv::Mat colors;
 
     cvtColor(FrameRGB, hsv, COLOR_BGR2HSV);
+	const size_t CH_HUE = 0;
+    const size_t CH_SATURATION = 1;
+    const size_t CH_VALUE = 2;
+    const size_t BUFFER_SIZE = 5;
 
-/*
-    inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
-    inRange(hsv, Scalar(0, 70, 50), Scalar(180, 255, 255), colors);
-    colors -= yellow_lines; // we remove colors, excepting yellow
-    */
-    Mat channels[3]; // channels[2] is V
+	// cv::Mat yellow_lines;
+    // inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
+
+    Mat channels[3];
     split(hsv, channels);
-  /*  colors = 255 - colors;
-	bitwise_and(colors, channels[2], channels[2]);
-*/
-	int lRowIndex	= mCAMERA.RES_VH(0) -mSPAN;
+
+    // REMOVE ASPHALT COLOR
+    {
+		const int MARGIN = 50;
+		double minVal;
+		double maxVal;
+		Point minLoc;
+		Point maxLoc;
+		int maxS, maxV;
+		Mat image_roi;
+
+		cv::Point r1, r2, l1, l2;
+
+		r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
+		r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+
+		r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
+		r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+
+		l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
+		l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+
+		l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
+		l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+
+		cv::Point ravg = Point((r1+r2)/2);
+		cv::Point lavg = Point((l1+l2)/2);
+
+		int rx, ry, rw, rh;
+
+		rx = lavg.x + MARGIN;
+		ry = lavg.y;
+		rw = ravg.x - lavg.x - 2* MARGIN;
+		rh = l1.y - lavg.y;
+
+		Rect region_of_interest = Rect(rx, ry, rw, rh);
+
+		{ // DEBUG
+			vector<cv::Point> area;
+
+			area.push_back(Point(rx, ry+rh));
+			area.push_back(Point(rx, ry));
+			area.push_back(Point(rx+rw, ry));
+			area.push_back(Point(rx+rw, ry+rh));
+
+			mPtrLaneModel->debugCurves.clear();
+			mPtrLaneModel->debugCurves.push_back(area);
+		}
+
+		image_roi = channels[CH_SATURATION](region_of_interest);
+		minMaxLoc( image_roi, &minVal, &maxVal, &minLoc, &maxLoc );
+		maxS = maxVal;
+
+		image_roi = channels[CH_VALUE](region_of_interest);
+		minMaxLoc( image_roi, &minVal, &maxVal, &minLoc, &maxLoc );
+		maxV = maxVal;
+
+		inRange(hsv, Scalar(0, 0, 0), Scalar(180, maxS, maxV), colors);
+		colors = 255 - colors;
+
+		bitwise_and(colors, channels[CH_VALUE], channels[CH_VALUE]);
+    }
+
+	imshow("out", channels[CH_VALUE]);
+
+	if (debugX == 0) imshow("channels[CH_VALUE]", channels[CH_VALUE]);
+
+	channels[CH_VALUE] /= BUFFER_SIZE;
+
 	cv::Rect lROI;
+	lROI = cv::Rect(0, mCAMERA.RES_VH(0) - mSPAN, mCAMERA.RES_VH(1), mSPAN);
+	channels[CH_VALUE](lROI).copyTo(mFrameGRAY_ROI);
 
-	//Define ROI from the Input Image
-	lROI = cv::Rect(0, lRowIndex, mCAMERA.RES_VH(1), mSPAN);
-
-	channels[2](lROI).copyTo(mFrameGRAY_ROI);
-
-	double minVal;
-	double maxVal;
-	Point minLoc;
-	Point maxLoc;
-	GaussianBlur( mFrameGRAY_ROI, mFrameGRAY_ROI, cv::Size( 5, 5 ), 1, 1, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
-
-	cv::Mat myROI = Mat(mFrameGRAY_ROI.rows, mFrameGRAY_ROI.cols, CV_8U, cvScalar(255));
-	cv::Mat out2 = Mat(mFrameGRAY_ROI.rows, mFrameGRAY_ROI.cols, CV_16U, cvScalar(255));
-	cv::Mat bigobj = Mat(mFrameGRAY_ROI.rows, mFrameGRAY_ROI.cols, CV_32F, cvScalar(255));
-
-	//void rectangle(Mat& img, Rect rec, const Scalar& color, int thickness=1, int lineType=LINE_8, int shift=0 )
-
-	rectangle(myROI, Rect(0,0, mFrameGRAY_ROI.cols, 50), cvScalar(0), CV_FILLED);
-
-
-
-	// remove huge white objects (in x axis)
-	cv::Mat kernel;
-	int kernelSize = 96;
-
-	float c = 1.0 / ((kernelSize-19)) * 1.05;
-	cv::Scalar coef(c);
-	kernel = Mat(1, kernelSize, CV_32F, coef);
-
-	for (int i = 0; i < 10; i++)
+	if (!buffer[0].cols)
 	{
-		kernel.at<float>(0, kernelSize/2 + i) = 0;
-		kernel.at<float>(0, kernelSize/2 - i) = 0;
-	}
-
-	equalizeHist( mFrameGRAY_ROI, equalized );
-
-	filter2D(equalized, bigobj, CV_16U, kernel);
-
-	equalized.convertTo(equalized16, CV_16U);
-
-	mask = bigobj < equalized16;
-	bitwise_and(mask, equalized, equalized);
-	mask = equalized > 220;
-	bitwise_and(mask, equalized, equalized);
-	equalized -= 220;
-
-	multiply(equalized, equalized, equalized, 255.0/(35*35)/3, CV_8U);
-
-
-	static cv::Mat prev;
-	static cv::Mat prev2;
-
-
-	if (!prev.cols)
-	{
-		equalized.copyTo(prev);
-		equalized.copyTo(prev2);
+		for (size_t i = 0; i < BUFFER_SIZE; i++)
+			mFrameGRAY_ROI.copyTo(buffer[i]);
+		bufferIt = 0;
 	}
 
 
-	equalized.copyTo(tmp);
-	add(equalized, prev, tmp);
-	add(prev2, tmp, tmp);
+
+	mFrameGRAY_ROI.copyTo(tmp);
+
+	for (size_t i = 0; i < BUFFER_SIZE; i++)
+		add(buffer[i], tmp, tmp);
+	mFrameGRAY_ROI.copyTo(buffer[bufferIt]);
+
+	bufferIt = (bufferIt + 1) % BUFFER_SIZE;
 
 	cv::UMat utmp;
-
 	tmp.copyTo(utmp);
-
-	imshow("equalized", tmp);
-
 
 	CurveDetector2 lcd, rcd;
 
@@ -986,15 +861,13 @@ else if (debugY == 1)
 
 	mPtrLaneModel->curveRight.clear();
 	mPtrLaneModel->curveLeft.clear();
-	rcd.debugV.clear();
-	lcd.debugV.clear();
+	GaussianBlur( utmp, utmp, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
 
 	rcd.detectCurve(utmp, r1, r2, mPtrLaneModel->curveRight);
 	lcd.detectCurve(utmp, l1, l2, mPtrLaneModel->curveLeft);
 
-	if (debugZ == 0)
+	if (debugX == 0)
 	{
-
 		cv::Mat FrameDbg;
 		cv::cvtColor(tmp, FrameDbg, cv::COLOR_GRAY2BGR);
 
@@ -1002,7 +875,6 @@ else if (debugY == 1)
 		cv::Point c2(3, 0);
 		cv::Point c3(0, 3);
 		cv::Point c4(0, -3);
-
 
 		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
 		{
@@ -1013,7 +885,6 @@ else if (debugY == 1)
 		{
 			line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
 		}
-
 
 		for (Point pt : mPtrLaneModel->curveRight)
 		{
@@ -1028,67 +899,17 @@ else if (debugY == 1)
 		}
 
 		imshow("debug", FrameDbg);
-
-		for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
-		{
-			mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - tmp.rows;
-		}
-
-		for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
-		{
-			mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - tmp.rows;
-		}
 	}
 
+	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
+	{
+		mPtrLaneModel->curveRight[i].y += FrameGRAY.rows - tmp.rows;
+	}
 
-
-
-
-
-
-
-
-
-
-
-
-	prev2 = prev;
-	prev = equalized;
-
-
-
-
-
-
-}
-else if (debugY == 2)
-{
-	cv::Mat hsv;
-	cv::Mat yellow_lines;
-	cv::Mat weak_yellow_lines;
-
-	cv::Mat colors;
-
-    cvtColor(FrameRGB, hsv, COLOR_BGR2HSV);
-
-
-    inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
-    inRange(hsv, Scalar(0, 70, 50), Scalar(180, 255, 255), colors);
-    colors -= yellow_lines; // we remove colors, excepting yellow
-    Mat channels[3]; // channels[2] is V
-    split(hsv, channels);
-    colors = 255 - colors;
-	bitwise_and(colors, channels[2], channels[2]);
-
-
-	imshow("out", channels[2]);
-
-}
-
-
-
-
-
+	for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
+	{
+		mPtrLaneModel->curveLeft[i].y += FrameGRAY.rows - tmp.rows;
+	}
 
 
 #ifdef PROFILER_ENABLED

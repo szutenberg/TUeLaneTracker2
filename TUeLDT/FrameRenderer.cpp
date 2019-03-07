@@ -128,7 +128,6 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 
 
 
-
 	/*
 	// Highlight region below Horizon
 	{
