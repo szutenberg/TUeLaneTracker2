@@ -37,30 +37,7 @@ int CurveDetector2::detectCurve(const cv::UMat& img, Point p1, Point p2, std::ve
 
 
 
-inline double Det(double a, double b, double c, double d)
-{
-	return a*d - b*c;
-}
 
-Point2f CurveDetector2::findCrossPoint(Point a1, Point a2, Point b1, Point b2)
-{
-	Point2f ret(0,0);
-
-	double detL1 = Det(a1.x, a1.y, a2.x, a2.y);
-	double detL2 = Det(b1.x, b1.y, b2.x, b2.y);
-
-	double xnom = Det(detL1, a1.x - a2.x, detL2, b1.x - b2.x);
-	double ynom = Det(detL1, a1.y - a2.y, detL2, b1.y - b2.y);
-	double denom = Det( a1.x - a2.x, a1.y - a2.y, b1.x - b2.x, b1.y - b2.y);
-
-	if(abs(denom) > 0.0001)
-	{
-		ret.x = xnom / denom;
-		ret.y = ynom / denom;
-	}
-
-	return ret;
-}
 
 int CurveDetector2::computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve)
 {
