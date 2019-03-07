@@ -814,12 +814,11 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 
 	if (debugX == 0) imshow("channels[CH_VALUE]", channels[CH_VALUE]);
 
-	channels[CH_VALUE] /= BUFFER_SIZE;
 
 	cv::Rect lROI;
 	lROI = cv::Rect(0, mCAMERA.RES_VH(0) - mSPAN, mCAMERA.RES_VH(1), mSPAN);
 	channels[CH_VALUE](lROI).copyTo(mFrameGRAY_ROI);
-
+	mFrameGRAY_ROI /= BUFFER_SIZE;
 	if (!buffer[0].cols)
 	{
 		for (size_t i = 0; i < BUFFER_SIZE; i++)
@@ -865,6 +864,87 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 
 	rcd.detectCurve(utmp, r1, r2, mPtrLaneModel->curveRight);
 	lcd.detectCurve(utmp, l1, l2, mPtrLaneModel->curveLeft);
+
+	if ((mPtrLaneModel->curveRight.size() > 2) && (mPtrLaneModel->curveLeft.size() > 2))
+	{
+		Point2f l1 = mPtrLaneModel->curveLeft[0];
+		Point2f l2 = mPtrLaneModel->curveLeft[1];
+
+		Point2f r1 = mPtrLaneModel->curveRight[0];
+		Point2f r2 = mPtrLaneModel->curveRight[1];
+
+		Point2f crossPoint = rcd.findCrossPoint(l1, l2, r1, r2);
+
+		if (crossPoint.x == 0) return;
+
+		Point2f vl = crossPoint - l1;
+		Point2f vr = crossPoint - r1;
+
+		float dl_len = sqrt(vl.x*vl.x + vl.y*vl.y);
+		float dr_len = sqrt(vr.x*vr.x + vr.y*vr.y);
+
+		float len = dl_len;
+		if (dr_len < len) len = dr_len;
+
+		vl /= dl_len;
+		vr /= dr_len;
+
+		vl *= -len;
+		vr *= -len;
+
+		vl += crossPoint;
+		vr += crossPoint;
+
+		//line(FrameDbg, Point(vl), Point(vr), CvScalar(0, 0, 200), 2);
+
+		Point2f cc = (vr + vl) / 2.0;
+
+		Point2f tmpV = crossPoint - cc;
+		tmpV *= 0.95;
+
+		Point2f dd = cc + tmpV;
+
+		Point2f kl = rcd.findCrossPoint(l1, l2, dd, dd + (vr - vl));
+		Point2f kr = rcd.findCrossPoint(r1, r2, dd, dd + (vr - vl));
+
+		Point2f el = kl - (kr - kl);
+		Point2f er = kr + (kr - kl);
+		//line(FrameDbg, Point(el), Point(er), CvScalar(0, 0, 200), 2);
+		Point2f bl = vl - (vr - vl);
+		Point2f br = vr + (vr - vl);
+
+	    // Input Quadilateral or Image plane coordinates
+	    Point2f inputQuad[4];
+	    // Output Quadilateral or World plane coordinates
+	    Point2f outputQuad[4];
+
+	    // Lambda Matrix
+	    Mat lambda( 2, 4, CV_32FC1 );
+	    //Input and Output Image;
+	    Mat input, output;
+
+	    channels[CH_VALUE](lROI).copyTo(input);
+
+	    // Set the lambda matrix the same type and size as input
+	    lambda = Mat::zeros( input.rows, input.cols, input.type() );
+
+	    // Note that points in inputQuad and outputQuad have to be from top-left in clockwise order
+	    inputQuad[0] = el;
+	    inputQuad[1] = er;
+	    inputQuad[2] = br;
+	    inputQuad[3] = bl;
+
+	    outputQuad[0] = Point2f( 0,0 );
+	    outputQuad[1] = Point2f( input.cols-1,0);
+	    outputQuad[2] = Point2f( input.cols-1,input.rows-1);
+	    outputQuad[3] = Point2f( 0,input.rows-1  );
+
+	    lambda = getPerspectiveTransform( inputQuad, outputQuad );
+	    warpPerspective(input,output,lambda,output.size() );
+
+	    if (debugX == 0) imshow("Output", output);
+	}
+
 
 	if (debugX == 0)
 	{

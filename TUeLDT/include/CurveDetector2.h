@@ -27,7 +27,7 @@ public:
 	int computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve);
 	int left;
 	std::vector< std::vector<cv::Point>> debugCurves;
-
+	Point2f findCrossPoint(Point a1, Point a2, Point b1, Point b2);
 
 };
 
