@@ -12,11 +12,11 @@ int CurveDetector2::detectCurve(const cv::UMat& img, Point p1, Point p2, std::ve
 
 	Point2f vec;
 	vec = p2 - p1;
-	float len = vec.y / (-300.0);
+	float len = vec.y / (-200.0);
 	vec /= len;
 	p2 = p1 + Point(vec);
 
-	for (int xoffset = -50; xoffset <= 50; xoffset +=10)
+	for (int xoffset = -60; xoffset <= 60; xoffset +=20)
 	{
 		std::vector<Point> tmpCurve;
 		Point pt1(p1.x + xoffset, p1.y);
@@ -28,6 +28,8 @@ int CurveDetector2::detectCurve(const cv::UMat& img, Point p1, Point p2, std::ve
 			maxVal = value;
 			curve = tmpCurve;
 		}
+
+		//debugCurves.push_back(tmpCurve);
 	}
 
 	return maxVal;
@@ -67,6 +69,15 @@ int CurveDetector2::computeCurve(const cv::UMat& img, Point p1, Point p2, std::v
 				vec /= div;
 				pc2 += Point(vec);
 			}
+
+			Point2f vecA(p2-p1);
+			Point2f vecB(pc2-pc1);
+
+			float degA = atan(vecA.y / vecA.x) * 180.0 / 3.14;
+			float degB = atan(vecB.y / vecB.x) * 180.0 / 3.14;
+			//cout << degA << " " << degB << endl;
+			float dif = abs(degA - degB);
+			if (dif > 20) continue;
 
 			//cout << p1 << p2 << pc1 << pc2 << endl;
 
@@ -131,19 +142,21 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 	vec /= vecLen;
 
 	Point2f vecPerp = vec;
+	swap(vecPerp.x, vecPerp.y);
 	vecPerp.x *= -1.0;
+	vecPerp *= 30.0;
 
-	for (int i = 1; i < 15; i++)
+	for (int i = 0; i < 15; i++)
 	{
 		Point2f c(pt);
-		float len = i * 12.0;
-		float d = 15.0;
+		float len = 50.0 + i * 20.0; // TODO - remove magic numbers
 
 		c.x += vec.x * len;
 		c.y += vec.y * len;
 
-		Point e1(c + vecPerp * d + Point2f(0.5, 0.5));
-		Point e2(c - vecPerp * d + Point2f(0.5, 0.5));
+		Point e1(c + vecPerp);
+		Point e2(c - vecPerp);
+
 
 		if (isPointOutOfRange(e1, img.cols, img.rows) ||
 				isPointOutOfRange(e2, img.cols, img.rows))
@@ -151,7 +164,14 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 			continue;
 		}
 
-		int maxVal = 1;
+/*
+		vector<cv::Point> mark;
+		mark.push_back(e1);
+		mark.push_back(e2);
+		debugCurves.push_back(mark);
+*/
+
+
 		Point maxPos(0, 0);
 
 		Point a = e1;
@@ -178,7 +198,9 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 
 		int counter = 0;
 
-		int WIDTH = 17;
+		const int WIDTH = 33;
+		int maxVal = WIDTH * 10;
+
 		Point positions[WIDTH];
 		int values[WIDTH];
 		for (int i = 0; i < WIDTH; i++) values[i] = 0;
@@ -188,7 +210,7 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 
 		float p = diry * a.x + dirx * a.y;
 
-		float range = 1.0 * sqrt(slope * slope + 1);
+		float range = 0.5 * sqrt(slope * slope + 1);
 
 		for (int i = from; i <= to; i++, p+=slope)
 		{
@@ -214,13 +236,10 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 					maxPos = positions[(avgIt + WIDTH/2)%WIDTH];
 				}
 
-
 				values[avgIt] = val;
 				positions[avgIt] = pos;
 				avgIt++;
 				avgIt %= WIDTH;
-
-
 			}
 		}
 
@@ -239,9 +258,9 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 */
 	std::vector<Point> finalRes;
 
-	if (res.size() <= 5) return res;
+	if (res.size() <= 8) return res;
 
-	while(finalRes.size() != 5)
+	while(finalRes.size() != 8)
 	{
 		Point pt;
 		int maxi;
@@ -261,7 +280,6 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 	//	cout << "Putting " << maxVal << endl;
 	}
 
-	// TODO - select only two
 	return finalRes;
 }
 
