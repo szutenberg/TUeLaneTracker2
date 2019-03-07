@@ -10,6 +10,8 @@
 #include "Benchmark.h"
 #include "Helpers.h"
 
+extern int debugX;
+
 Benchmark::Benchmark(cv::String path, const LaneTracker::Config& Config):
 mConfig(Config),
 mPtrFrameFeeder(nullptr),
@@ -52,6 +54,7 @@ Benchmark::~Benchmark() {
 
 vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in, int ymin)
 {
+	//ymin = 470; // we focus only on points until purview line
 	int i = in.size() - 1;
 	vector<cv::Point> out;
 
@@ -71,6 +74,7 @@ vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in, int y
 		if (pos.x > (mConfig.cam_res_h - 1)) pos.x = -2;
 		pos.y = ypos;
 
+		if (pos.y < ymin) pos.x = 10000;
 		if (pos.y < ymin) pos.x = -2;
 
 		out.push_back(pos);
@@ -84,34 +88,52 @@ int Benchmark::run()
 {
 	for (cv::String testPath : mTestPaths)
 	{
+		std::cerr << testPath << endl;
 		mPtrFrameFeeder = unique_ptr<FrameFeeder>(new ImgStoreFeeder(testPath));
 	    mPtrBufferingState.reset(new BufferingState<BufferingDAG_generic>(mConfig));
 		mPtrBootingState = nullptr;
 	    mPtrBufferingState->setupDAG(std::ref(*mPtrTemplates), mConfig.buffer_count);
 	    mPtrFrameFeeder->Paused.store(false);
 
-	    mPtrBufferingState->run(mPtrFrameFeeder->dequeue());
-	    mPtrBufferingState->run(mPtrFrameFeeder->dequeue());
+	    cv::UMat frame, display;
+
+	    frame = mPtrFrameFeeder->dequeue();
+	    mPtrBufferingState->run(frame);
+
+	    frame = mPtrFrameFeeder->dequeue();
+	    mPtrBufferingState->run(frame);
+
+	    display = mPtrFrameFeeder->dequeueDisplay();
+	    display = mPtrFrameFeeder->dequeueDisplay();
+
 	    mPtrTrackingState.reset(new TrackingLaneState<TrackingLaneDAG_generic>( move(mPtrBufferingState->mGraph) ));
 	    mPtrBufferingState 	= nullptr; //BufferingState does not contain graph anymore, so make it unusable.
 
 	    mPtrTrackingState->setupDAG(mPtrLaneFilter.get(), mPtrVanishingPtFilter.get());
 	    mPtrFrameRenderer.reset(new FrameRenderer(*mPtrLaneFilter, *mPtrFrameFeeder.get() ));
 
-		for (int i = 1; i < 18; i++)
-		{
-			   mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
-			   mPtrFrameFeeder->dequeueDisplay();
-		}
+	    for (int i = 1; i <= 17; i++)
+	    {
+	    	frame = mPtrFrameFeeder->dequeue();
+	    	mPtrLaneModel = mPtrTrackingState->run(frame);
 
-		mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
+	    	display = mPtrFrameFeeder->dequeueDisplay();
 
-		mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveLeft, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-		mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveRight, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    	mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveLeft, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    	mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveRight, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    	if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
+	    }
 
+    	frame = mPtrFrameFeeder->dequeue();
+    	mPtrLaneModel = mPtrTrackingState->run(frame);
 
-		mPtrFrameRenderer->drawLane(mPtrFrameFeeder->dequeueDisplay(), *mPtrLaneModel);
+    	display = mPtrFrameFeeder->dequeueDisplay();
 
+	    mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveLeft, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveRight, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+
+	    if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
+	    if (debugX == 0) cvWaitKey(100000);
 
 		printf("{\"lanes\": [");
 
