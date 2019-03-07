@@ -91,6 +91,17 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	line(FRAME, Point(0, mPURVIEW_LINE_ICS),
 			Point(FRAME.cols, mPURVIEW_LINE_ICS), CvScalar(0, 0, 0), 1);
 	
+
+
+	for (vector<cv::Point> v : Lane.debugCurves)
+	{
+		for (size_t i = 1; i < v.size(); i++)
+		{
+			line(FRAME, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
+		}
+	}
+
+
 	for(int i = 1; i < (int)Lane.benchL.size(); i++)
 	{
 		if (Lane.benchL[i-1].x == -2) continue;
@@ -114,6 +125,7 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 	{
 		line(FRAME, Lane.curveLeft[i-1], Lane.curveLeft[i], CvScalar(255, 0, 0), 2);
 	}
+
 
 
 
