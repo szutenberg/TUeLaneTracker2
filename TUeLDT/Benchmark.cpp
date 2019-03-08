@@ -58,11 +58,11 @@ vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in, int y
 	int i = in.size() - 1;
 	vector<cv::Point> out;
 
-	if (i <= 1) return out;
+	if (i < 1) return out;
 
 	for (int ypos : h_samples)
 	{
-		while ((in[i-1].y < ypos) && (i > 1))
+		while ((in[i-1].y < ypos) && (i >= 1))
 		{
 			i--;
 		}
