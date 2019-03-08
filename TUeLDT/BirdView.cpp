@@ -68,7 +68,7 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 	tmpV *= 0.95;
 
 	float tmpH = sqrt(tmpV.x*tmpV.x + tmpV.y*tmpV.y);
-	std::cout << "tmpH = " << tmpH << std::endl;
+	//std::cout << "tmpH = " << tmpH << std::endl;
 	if (tmpH > maxH) tmpV /= tmpH / maxH;
 
 	Point2f dd = cc + tmpV;
@@ -76,17 +76,20 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 	Point2f kl = findCrossPoint(l1, l2, dd, dd + (vr - vl));
 	Point2f kr = findCrossPoint(r1, r2, dd, dd + (vr - vl));
 
-	Point2f el = kl - (kr - kl);
-	Point2f er = kr + (kr - kl);
+	Point2f el = kl - (kr - kl) * 3.0;
+	Point2f er = kr + (kr - kl) * 3.0;
 
-	Point2f bl = vl - (vr - vl);
-	Point2f br = vr + (vr - vl);
+	Point2f bl = vl - (vr - vl) * 3.0;
+	Point2f br = vr + (vr - vl) * 3.0;
 
     // Note that points in inputQuad and outputQuad have to be from top-left in clockwise order
     mInputQuad[0] = el;
     mInputQuad[1] = er;
     mInputQuad[2] = br;
     mInputQuad[3] = bl;
+
+    mWidth = width;
+    mHeight = height;
 
     mOutputQuad[0] = Point2f(0, 0);
     mOutputQuad[1] = Point2f(width - 1, 0);
