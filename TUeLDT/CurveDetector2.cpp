@@ -6,42 +6,32 @@
 
 using namespace std;
 
-int CurveDetector2::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve)
+int CurveDetector2::detectLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane)
 {
 	int maxVal = -1;
-
-	Point2f vec;
-	vec = p2 - p1;
+	Point2f vec = p2 - p1;
 	float len = vec.y / (-200.0);
-	vec /= len;
-	p2 = p1 + Point(vec);
+	p2 = p1 + Point(vec / len);
 
 	for (int xoffset = -60; xoffset <= 60; xoffset +=20)
 	{
-		std::vector<Point> tmpCurve;
+		std::vector<Point> tmpLane;
 		Point pt1(p1.x + xoffset, p1.y);
 		Point pt2(p2.x + xoffset, p2.y);
 
-		int value = computeCurve(img, pt1, pt2, tmpCurve);
+		int value = adjustLane(img, pt1, pt2, tmpLane);
 		if (value > maxVal)
 		{
 			maxVal = value;
-			curve = tmpCurve;
+			lane = tmpLane;
 		}
-
-		//debugCurves.push_back(tmpCurve);
 	}
-
 	return maxVal;
 }
 
 
-
-
-
-int CurveDetector2::computeCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &curve)
+int CurveDetector2::adjustLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane)
 {
-	//curve.push_back(p1);
 	int maxVal = -1;
 	Point a, b;
 	float div;
@@ -95,9 +85,8 @@ int CurveDetector2::computeCurve(const cv::UMat& img, Point p1, Point p2, std::v
 			}
 		}
 	}
-	curve.push_back(a);
-	curve.push_back(b);
-	curve.push_back(b + b - a);
+	lane.push_back(a);
+	lane.push_back(b);
 
 	return maxVal;
 }
@@ -131,10 +120,11 @@ void CurveDetector2::grabPoints(Point a, Point b, std::vector<Point> &points)
 	}
 }
 
+
 inline int CurveDetector2::isPointOutOfRange(Point a, int width, int height)
 {
 	return ((a.x < 1) || (a.y < 1) || (a.x > (width - 1)) || (a.y > (height - 1)));
-} //TODO - 25 is a PARAMETER
+}
 
 
 std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point pt, Point2f vec, int step)
@@ -160,7 +150,6 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 
 		Point e1(c + vecPerp);
 		Point e2(c - vecPerp);
-
 
 		if (isPointOutOfRange(e1, img.cols, img.rows) ||
 				isPointOutOfRange(e2, img.cols, img.rows))

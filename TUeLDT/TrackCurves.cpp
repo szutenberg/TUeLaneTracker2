@@ -136,26 +136,52 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
 	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameRGB.rows + tmp.rows;
 
-	lcd.left = 1;
-	rcd.left = -1;
-
 	mPtrLaneModel->curveRight.clear();
 	mPtrLaneModel->curveLeft.clear();
 	GaussianBlur( utmp, utmp, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
 
-	rcd.detectCurve(utmp, r1, r2, mPtrLaneModel->curveRight);
-	lcd.detectCurve(utmp, l1, l2, mPtrLaneModel->curveLeft);
+	rcd.detectLane(utmp, r1, r2, mPtrLaneModel->curveRight);
+	lcd.detectLane(utmp, l1, l2, mPtrLaneModel->curveLeft);
 
 	if ((mPtrLaneModel->curveRight.size() > 2) && (mPtrLaneModel->curveLeft.size() > 2))
 	{
+
+		//rcd.detectCurve(utmp, r1, r2, mPtrLaneModel->curveRight);
+		//lcd.detectCurve(utmp, l1, l2, mPtrLaneModel->curveLeft);
+		//float degree;
+
+		//degree = atan(-(float)(mPtrLaneModel->curveLeft[1].y - mPtrLaneModel->curveLeft[0].y) / (mPtrLaneModel->curveLeft[1].x - mPtrLaneModel->curveLeft[0].x)) * 180.0 / 3.14;
+		//cout << mPtrLaneModel->curveLeft[0].x << " " << degree  << endl;
+
 		Mat output;
 		BirdView bird;
-		bird.configureTransform(l1, l2, r1, r2, 600, mFrameGRAY_ROI.cols, mFrameGRAY_ROI.rows);
-		output = bird.applyTransformation(channels[CH_VALUE](lROI));
+		bird.configureTransform(l1, l2, r1, r2, 600, 250, 700);
+		Mat input;
+		Mat img;
+		channels[CH_VALUE](lROI).copyTo(input);
+
+		cv::GaussianBlur(input, img, cv::Size(9, 9), 3, 5);
+
+		 imshow("gb", img);
+
+		cv::addWeighted(input, 1.5, img, -0.5, 0, img);
+
+		output = bird.applyTransformation(img);
+		equalizeHist(output, output);
+		multiply(output, output, output, 1.0/255);
+		equalizeHist(output, output);
+
+
 
 	    if (debugX == 0) imshow("Output", output);
 	}
 
+
+
+
+
+
+	///////// DEBUG WINDOW //////////////////////////////////////
 
 	if (debugX == 0)
 	{
