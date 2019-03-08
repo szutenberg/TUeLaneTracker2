@@ -161,6 +161,18 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 					cvPoint(x, mPURVIEW_LINE_ICS - 30), cvScalar(0, 0, 0), 1);
 	}
 
+	// Connect bins
+	for (size_t i = 0; i < mCOUNT_BINS; i++) {
+		int px = mPURVIEW_BINS.at<int32_t>(i, 0) + mO_ICCS_ICS.x;
+		int py = mPURVIEW_LINE_ICS;
+
+		int bx = mBASE_BINS.at<int32_t>(i, 0) + mO_ICCS_ICS.x;
+		int by = mBASE_LINE_ICS;
+
+		line(FRAME, cvPoint(px, py), cvPoint(bx, by),
+				cvScalar(0, 0, 0), 2);
+	}
+
 #ifndef DISPLAY_GRAPHICS_DCU
 	imshow("Display window", FRAME);
 	if (waitKey(1) == 32) {
