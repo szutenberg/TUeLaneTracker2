@@ -212,54 +212,34 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 	    tmp = 255 - tmp;
 
 	    multiply(tmp, birdHighPass, birdWithoutCars, 1.0/255);
-	    multiply(birdRaw, birdWithoutCars, birdWithoutCars, 1.0/255);
+	    multiply(birdRaw, birdWithoutCars, birdWithoutCars, 1.0/255*2.0);
+
+	    GaussianBlur(birdWithoutCars, birdWithoutCars, cv::Size(3,3), 0.5, 0.5);
+
 
 	    if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
-
-	    char str[20];
-	    sprintf(str, "%d.png", debugCt++);
-	    imwrite(str, birdWithoutCars );
 
 
 	    Mat debugBird;
 
-	    birdWithoutCars.copyTo(debugBird);
-		cv::UMat ttt;
-		birdWithoutCars.copyTo(ttt);
 
-		CurveDetector3 test;
+		CurveDetector3 leftDet, rightDet;
+		leftDet.name = "Left";
+		rightDet.name = "Right";
 
-	    cvtColor(debugBird, debugBird, COLOR_GRAY2BGR);
 
 		Point p(200, 699);
 		laneR.clear();
-		test.detectCurve(ttt, p, p, laneR);
-
-
-
+		rightDet.detectCurve(birdWithoutCars, p, laneR);
 
 		p = Point(150, 699);
 		laneL.clear();
-		test.detectCurve(ttt, p, p, laneL);
+		leftDet.detectCurve(birdWithoutCars, p, laneL);
 
 		bird.invertPoints(laneR, laneRxy);
 		bird.invertPoints(laneL, laneLxy);
 
-		for (Point p : laneR)
-		{
-			line(debugBird, p + c1, p + c2, CvScalar(0, 0, 200), 2);
-			line(debugBird, p + c3, p + c4, CvScalar(0, 0, 200), 2);
-		}
 
-		for (Point p : laneL)
-		{
-			line(debugBird, p + c1, p + c2, CvScalar(0, 0, 200), 2);
-			line(debugBird, p + c3, p + c4, CvScalar(0, 0, 200), 2);
-		}
-
-
-
-	    if (debugX == 0) imshow("debugBird", debugBird);
 
 	}
 
