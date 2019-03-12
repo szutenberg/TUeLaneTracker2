@@ -3,90 +3,118 @@
 * ****************************************************************************/
 
 #include "CurveDetector3.h"
+#include <Eigen/QR>
+
 
 using namespace std;
+using namespace Eigen;
 
-int CurveDetector3::detectLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane)
+
+// Source
+void polyfit(const std::vector<double> &xv, const std::vector<double> &yv, std::vector<double> &coeff, int order)
 {
-	int maxVal = -1;
-	Point2f vec = p2 - p1;
-	float len = vec.y / (-200.0);
-	p2 = p1 + Point(vec / len);
+	Eigen::MatrixXd A(xv.size(), order+1);
+	Eigen::VectorXd yv_mapped = Eigen::VectorXd::Map(&yv.front(), yv.size());
+	Eigen::VectorXd result;
 
-	for (int xoffset = -60; xoffset <= 60; xoffset +=20)
-	{
-		std::vector<Point> tmpLane;
-		Point pt1(p1.x + xoffset, p1.y);
-		Point pt2(p2.x + xoffset, p2.y);
+	assert(xv.size() == yv.size());
+	assert(xv.size() >= order+1);
 
-		int value = adjustLane(img, pt1, pt2, tmpLane);
-		if (value > maxVal)
-		{
-			maxVal = value;
-			lane = tmpLane;
-		}
-	}
-	return maxVal;
+	// create matrix
+	for (size_t i = 0; i < xv.size(); i++)
+	for (size_t j = 0; j < order+1; j++)
+		A(i, j) = pow(xv.at(i), j);
+
+	// solve for linear least squares fit
+	result = A.householderQr().solve(yv_mapped);
+
+	coeff.resize(order+1);
+	for (size_t i = 0; i < order+1; i++)
+		coeff[i] = result[i];
 }
 
 
-int CurveDetector3::adjustLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane)
+
+void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Point zero=Point(0,0))
+{
+	std::vector<double> xv;
+	std::vector<double> yv;
+	std::vector<double> coeff;
+
+	for (Point2f p : points)
+	{
+		if (p.y < 350) continue;
+		xv.push_back(zero.y - p.y );
+		yv.push_back(p.x - zero.x);
+	}
+	polyfit(xv, yv, coeff, 2);
+
+	for (int y = 695; y >= 0; y-=50)
+	{
+		float yc = zero.y - y ;
+		float xc = yc * yc * coeff[2] + yc * coeff[1] + coeff[0] + zero.x;
+		curve.push_back(Point2f(xc, y));
+	}
+	//printf("%lf\t%lf\t%lf\n", coeff[2], coeff[1], coeff[0]);
+
+}
+
+int CurveDetector3::detectCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point2f> &curve)
 {
 	int maxVal = -1;
 	Point a, b;
-	float div;
 	std::vector<Point> points;
-	points = selectNextPoints(img, p1, Point2f(p2 - p1), 1);
 
-	for (size_t i = 0; i < points.size(); i++)
+	float STEP = 150;
+	Point prev = p1;
+	int maxSum = -1;
+	curve.push_back(p1);
+	float lastAngle = 0;
+	int fromX = tan(lastAngle - 7.0 * 3.14 / 180.0) * STEP;
+	int toX = tan(lastAngle + 7.0 * 3.14 / 180.0) * STEP;
+
+
+	for (int i = 0; i < 100; i++)
 	{
-		for (size_t j = i+1; j < points.size(); j++)
+		if (prev.y <= 200) break;
+		Point maxPoint(prev.x, prev.y - STEP);
+
+		maxSum = 0;
+		for (int x = prev.x + fromX; x <= prev.x + toX; x++)
 		{
-			Point pc1 = points[i];
-			Point pc2 = points[j];
+			Point trash;
+			Point maxPointT = Point(x, prev.y - STEP);
+			int value = calcScore(img, Point(prev.x, prev.y), Point(x, prev.y - STEP), 0, maxPointT);
+			//int value1 = calcScore(img, Point(prev.x - 5, prev.y), Point(x - 5, prev.y - STEP), 1, trash);
+			//int value2= calcScore(img, Point(prev.x + 5, prev.y), Point(x + 5, prev.y - STEP), 1, trash);
 
-			Point2f vec = pc2 - pc1;
-			if (abs(vec.y) < 5) continue;
+			int sum = value * 4;
 
-			//cout << p1 << p2 << pc1 << pc2 << endl;
-
-			if (p1.y != pc1.y)
+			if (sum > maxSum)
 			{
-				div = vec.y / (p1.y - pc1.y);
-				vec /= div;
-				pc1 += Point(vec);
-			}
-
-			if (p2.y != pc2.y)
-			{
-				div = vec.y / (p2.y - pc2.y);
-				vec /= div;
-				pc2 += Point(vec);
-			}
-
-			Point2f vecA(p2-p1);
-			Point2f vecB(pc2-pc1);
-
-			float degA = atan(vecA.y / vecA.x) * 180.0 / 3.14;
-			float degB = atan(vecB.y / vecB.x) * 180.0 / 3.14;
-			//cout << degA << " " << degB << endl;
-			float dif = abs(degA - degB);
-			if (dif > 20) continue;
-
-			//cout << p1 << p2 << pc1 << pc2 << endl;
-
-			int value = calcScore(img, pc1, pc2, 1);
-			//cout << "value = " << value << endl;
-			if (value > maxVal)
-			{
-				maxVal = value;
-				a = pc1;
-				b = pc2;
+				maxSum = sum;
+				maxPoint = maxPointT;
+				lastAngle = atan((x - prev.x)/(STEP - prev.y));
 			}
 		}
+
+		//std::cout << maxSum << maxPoint << std::endl;
+		if (maxSum == 0) break;
+		//cout << lastAngle * 180.0 / 3.14 << " " << maxPoint << prev << endl;
+		prev = maxPoint;
+		curve.push_back(maxPoint);
+
+		fromX = tan(lastAngle - 3.0 * 3.14 / 180.0) * STEP;
+		toX = tan(lastAngle + 3.0 * 3.14 / 180.0) * STEP;
 	}
-	lane.push_back(a);
-	lane.push_back(b);
+
+	if (curve.size() > 3)
+	{
+		if (curve[3].y < 350) return 0;
+		std::vector<Point2f> newCurve;
+		fitPointsYX(curve, newCurve, p1);
+		curve = newCurve;
+	}
 
 	return maxVal;
 }
@@ -276,23 +304,33 @@ std::vector<Point> CurveDetector3::selectNextPoints(const cv::UMat& img, Point p
 	return finalRes;
 }
 
-int CurveDetector3::calcScore(const cv::UMat& img, Point a, Point b, float d)
+int CurveDetector3::calcScore(const cv::UMat& img, Point a, Point b, float d, Point &maxPoint)
 {
+	int maxVal = 0;
 	int res = 0;
 	if (a == b) return 0;
 	float slope = (float)(b.y - a.y) / (b.x - a.x);
 	int dirx = 0;
 	int diry = 0;
-
+	int swapped = 0;
+	Point startPoint = a;
 	if (abs(slope) < 1)
 	{
 		dirx = 1;
-		if (a.x > b.x) swap(a, b);
+		if (a.x > b.x)
+		{
+			swap(a, b);
+			swapped = 1;
+		}
 	}
 	else
 	{
 		diry = 1;
-		if (a.y > b.y) swap(a, b);
+		if (a.y > b.y)
+		{
+			swap(a, b);
+			swapped = 1;
+		}
 		slope = 1 / slope;
 	}
 
@@ -309,17 +347,48 @@ int CurveDetector3::calcScore(const cv::UMat& img, Point a, Point b, float d)
 
 	float range = d * sqrt(slope * slope + 1);
 
+	int sum = 0;
+	const int WIDTH = 17;
+	Point arr[WIDTH];
+	int values[WIDTH];
+
+	for (int i = 0; i < WIDTH; i++) values[i] = 0;
+	int it= 0;
+
+
 	for (int i = from; i <= to; i++, p+=slope)
 	{
 		for (int j = p - range; j <= p + range; j++, counter++)
 		{
 			// TODO: optimize - make two loops (dirx=0 and dirx=1)
 			Point pos(dirx * i + diry * j, dirx * j + diry * i);
-			if (isPointOutOfRange(pos, img.cols, img.rows)){
+			/*if (isPointOutOfRange(pos, img.cols, img.rows)){
 				counter--;
 				continue;
-			}
-			res += img.getMat(ACCESS_READ).at<uchar>(pos);
+			}*/
+
+			int value = img.getMat(ACCESS_READ).at<uchar>(pos);
+			//if ((     (((i - from) > 30) && swapped) || (((to - i) > 30) && !swapped) ) && (value > maxVal))
+
+			Point pt(dirx * i + diry * j, dirx * j + diry * i);
+
+			Point lenVec = pt - startPoint;
+			float len = lenVec.x * lenVec.x + lenVec.y * lenVec.y;
+
+				sum = sum + value - values[it];
+
+				values[it] = value;
+				arr[it] = pt;
+				it = (it + 1) % WIDTH;
+				if (len > 100*100)
+				{
+					if (sum > maxVal)
+					{
+						maxPoint = arr[(it + WIDTH/2)%WIDTH];
+						maxVal = sum ;
+					}
+				}
+				res += value;
 		}
 	}
 

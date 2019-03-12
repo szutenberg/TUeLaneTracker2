@@ -98,6 +98,8 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 
     mLambda = getPerspectiveTransform( mInputQuad, mOutputQuad );
 
+	invert(mLambda, mLambdaInv);
+
 	return true;
 }
 
@@ -110,11 +112,11 @@ Mat BirdView::applyTransformation(Mat img)
 }
 
 
-bool BirdView::invertPoints(std::vector<Point>& in, std::vector<Point> &out)
+bool BirdView::invertPoints(std::vector<Point2f>& in, std::vector<Point2f> &out)
 {
-	// TODO
+	perspectiveTransform(in, out, mLambdaInv);
 
-	return false;
+	return true;
 }
 
 BirdView::~BirdView() {

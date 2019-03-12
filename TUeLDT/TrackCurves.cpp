@@ -7,9 +7,24 @@
 
 #include "TrackingLaneDAG_generic.h"
 #include "CurveDetector2.h"
+#include "CurveDetector3.h"
+
 #include "BirdView.h"
 extern int debugX, debugY, debugZ;
 
+
+
+// https://stackoverflow.com/questions/19068085/shift-image-content-with-opencv
+Mat translateImg(Mat &img, int offsetx, int offsety){
+    Mat trans_mat = (Mat_<double>(2,3) << 1, 0, offsetx, 0, 1, offsety);
+    warpAffine(img,img,trans_mat,img.size());
+    return img;
+}
+
+
+
+
+int debugCt = 1;
 void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 {
 	cv::Mat mask;
@@ -30,6 +45,8 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
     // inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
 
     Mat channels[3];
+    Mat imgForLaneDetection;
+
     split(hsv, channels);
 
     // REMOVE ASPHALT COLOR
@@ -91,17 +108,22 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		inRange(hsv, Scalar(0, 0, 0), Scalar(180, maxS, maxV), colors);
 		colors = 255 - colors;
 
-		bitwise_and(colors, channels[CH_VALUE], channels[CH_VALUE]);
+		//bitwise_and(colors, channels[CH_VALUE], imgForLaneDetection);
+
+		cv::GaussianBlur(channels[CH_VALUE], imgForLaneDetection, cv::Size(7, 7), 1, 10);
+		cv::addWeighted(channels[CH_VALUE], 11, imgForLaneDetection, -10.5, 0, imgForLaneDetection);
+		cv::GaussianBlur(imgForLaneDetection, imgForLaneDetection, cv::Size(3, 3), 0.5, 0.5);
+
+		multiply(imgForLaneDetection, imgForLaneDetection, imgForLaneDetection, 1.0/255);
+
+
     }
 
-	imshow("out", channels[CH_VALUE]);
-
-	if (debugX == 0) imshow("channels[CH_VALUE]", channels[CH_VALUE]);
-
+    if (debugX == 0) imshow("imgForLaneDetection", imgForLaneDetection);
 
 	cv::Rect lROI;
 	lROI = cv::Rect(0, mCAMERA.RES_VH(0) - mSPAN, mCAMERA.RES_VH(1), mSPAN);
-	channels[CH_VALUE](lROI).copyTo(mFrameGRAY_ROI);
+	imgForLaneDetection(lROI).copyTo(mFrameGRAY_ROI);
 	mFrameGRAY_ROI /= BUFFER_SIZE;
 	if (!buffer[0].cols)
 	{
@@ -143,37 +165,102 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 	rcd.detectLane(utmp, r1, r2, mPtrLaneModel->curveRight);
 	lcd.detectLane(utmp, l1, l2, mPtrLaneModel->curveLeft);
 
-	if ((mPtrLaneModel->curveRight.size() > 2) && (mPtrLaneModel->curveLeft.size() > 2))
+
+	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
+
+	cv::Point c1(-3, 0);
+	cv::Point c2(3, 0);
+	cv::Point c3(0, 3);
+	cv::Point c4(0, -3);
+
+	if ((mPtrLaneModel->curveRight.size() == 2) && (mPtrLaneModel->curveLeft.size() == 2))
 	{
-
-		//rcd.detectCurve(utmp, r1, r2, mPtrLaneModel->curveRight);
-		//lcd.detectCurve(utmp, l1, l2, mPtrLaneModel->curveLeft);
-		//float degree;
-
-		//degree = atan(-(float)(mPtrLaneModel->curveLeft[1].y - mPtrLaneModel->curveLeft[0].y) / (mPtrLaneModel->curveLeft[1].x - mPtrLaneModel->curveLeft[0].x)) * 180.0 / 3.14;
-		//cout << mPtrLaneModel->curveLeft[0].x << " " << degree  << endl;
-
-		Mat output;
 		BirdView bird;
-		bird.configureTransform(l1, l2, r1, r2, 600, 250, 700);
 		Mat input;
-		Mat img;
+		Mat birdRaw;
+		Mat birdHighPass;
+		Mat tmp, tmp2;
+		Mat birdWithoutCars;
+
+
+		bird.configureTransform(l1, l2, r1, r2, 600, 350, 700);
+
+
+
 		channels[CH_VALUE](lROI).copyTo(input);
 
-		cv::GaussianBlur(input, img, cv::Size(9, 9), 3, 5);
+		birdRaw = bird.applyTransformation(input);
 
-		 imshow("gb", img);
+		cv::GaussianBlur(birdRaw, birdHighPass, cv::Size(7, 7), 1, 10);
+		cv::addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
+		cv::GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
 
-		cv::addWeighted(input, 1.5, img, -0.5, 0, img);
+	    if (debugX == 0) imshow("birdRaw", birdRaw);
+	    if (debugX == 0) imshow("birdHighPass", birdHighPass);
 
-		output = bird.applyTransformation(img);
-		equalizeHist(output, output);
-		multiply(output, output, output, 1.0/255);
-		equalizeHist(output, output);
+	    GaussianBlur(birdHighPass, tmp, cv::Size(3,3), 1, 1);
 
 
+	    tmp.copyTo(tmp2);
+	    translateImg(tmp2,-3, 0);
+	    translateImg(tmp,3, 0);
 
-	    if (debugX == 0) imshow("Output", output);
+	    absdiff(tmp, tmp2, tmp);
+
+	    //tmp -= 10; // allowed difference without penalty
+	    tmp *= 4;
+	    tmp = 255 - tmp;
+
+	    multiply(tmp, birdHighPass, birdWithoutCars, 1.0/255);
+	    multiply(birdRaw, birdWithoutCars, birdWithoutCars, 1.0/255);
+
+	    if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
+
+	    char str[20];
+	    sprintf(str, "%d.png", debugCt++);
+	    imwrite(str, birdWithoutCars );
+
+
+	    Mat debugBird;
+
+	    birdWithoutCars.copyTo(debugBird);
+		cv::UMat ttt;
+		birdWithoutCars.copyTo(ttt);
+
+		CurveDetector3 test;
+
+	    cvtColor(debugBird, debugBird, COLOR_GRAY2BGR);
+
+		Point p(200, 699);
+		laneR.clear();
+		test.detectCurve(ttt, p, p, laneR);
+
+
+
+
+		p = Point(150, 699);
+		laneL.clear();
+		test.detectCurve(ttt, p, p, laneL);
+
+		bird.invertPoints(laneR, laneRxy);
+		bird.invertPoints(laneL, laneLxy);
+
+		for (Point p : laneR)
+		{
+			line(debugBird, p + c1, p + c2, CvScalar(0, 0, 200), 2);
+			line(debugBird, p + c3, p + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		for (Point p : laneL)
+		{
+			line(debugBird, p + c1, p + c2, CvScalar(0, 0, 200), 2);
+			line(debugBird, p + c3, p + c4, CvScalar(0, 0, 200), 2);
+		}
+
+
+
+	    if (debugX == 0) imshow("debugBird", debugBird);
+
 	}
 
 
@@ -188,10 +275,7 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		cv::Mat FrameDbg;
 		cv::cvtColor(tmp, FrameDbg, cv::COLOR_GRAY2BGR);
 
-		cv::Point c1(-3, 0);
-		cv::Point c2(3, 0);
-		cv::Point c3(0, 3);
-		cv::Point c4(0, -3);
+
 
 		for (vector<cv::Point> v : rcd.debugCurves)
 		{
@@ -231,7 +315,33 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
 		}
 
+		for (Point pt : laneLxy)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		for (Point pt : laneRxy)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+
 		imshow("debug", FrameDbg);
+	}
+
+
+	for (Point2f p: laneRxy)
+	{
+		int ymin = mPtrLaneModel->curveRight[1].y;
+		if (p.y < ymin) mPtrLaneModel->curveRight.push_back(p);
+	}
+
+	for (Point2f p: laneLxy)
+	{
+		int ymin = mPtrLaneModel->curveLeft[1].y;
+		if (p.y < ymin) mPtrLaneModel->curveLeft.push_back(p);
 	}
 
 	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)

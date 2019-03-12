@@ -16,6 +16,7 @@ class BirdView {
 
 private:
 	Mat mLambda;
+	Mat mLambdaInv;
 
     // Input Quadilateral or Image plane coordinates
     Point2f mInputQuad[4];
@@ -32,7 +33,7 @@ public:
 	bool configureTransform(Point l1, Point l2, Point r1, Point r2, int maxH, int width, int height);
 
 	Mat applyTransformation(Mat img);
-	bool invertPoints(std::vector<Point>& in, std::vector<Point> &out);
+	bool invertPoints(std::vector<Point2f>& in, std::vector<Point2f> &out);
 
 	static double det(double a, double b, double c, double d);
 

@@ -16,11 +16,11 @@ private:
 	inline int isPointOutOfRange(Point a, int width, int height);
 
 public:
-	int detectLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane);
+	int detectCurve(const cv::UMat& img, Point p1, Point p2, std::vector<Point2f> &lane);
 	int adjustLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane);
 	void grabPoints(Point a, Point b, std::vector<Point> &points);
 	std::vector<Point> selectNextPoints(const cv::UMat& img, Point a, Point2f vec, int step);
-	int calcScore(const cv::UMat& img, Point a, Point b, float d);
+	int calcScore(const cv::UMat& img, Point a, Point b, float d, Point & maxPoint);
 	Point2f findCrossPoint(Point a1, Point a2, Point b1, Point b2);
 
 	std::vector< std::vector<cv::Point>> debugCurves;
