@@ -22,8 +22,6 @@ CustomLineSegmentDetector::CustomLineSegmentDetector(int width, int height):
 	densityTh(0.5),
 	nBins(1024)
 {
-	// TODO Auto-generated constructor stub
-
 	mImgI = new int[mSize];
 	mImgD = new double[mSize];
 }
@@ -45,13 +43,13 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 	}
 
 	int * n_out = new int;
+
 	double * res = LineSegmentDetection(
 					n_out, mImgD, mWidth, mHeight,
 					1, 1,  // no resizing
 					quant, angTh, logEps, densityTh, nBins,
 					NULL, NULL, NULL // we don't want to get pixel mapping
 				);
-
 	double maxScore = 0;
 
 	seg.clear();
@@ -63,7 +61,7 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		cv::Point2f p2(res[i*7+2], res[i*7+3]);
 		if (p1.y < p2.y) swap(p1, p2);
 		cv::Point2f shift;
-		int score = calcScore(img, p1, p2, shift);
+		int score = calcScore(p1, p2, shift);
 		p1 += shift;
 		p2 += shift;
 		if (score > maxScore) maxScore = score;
@@ -94,7 +92,7 @@ const int SHIFT_FROM = -2;
 const int SHIFT_TO = 2;
 const int SHIFT_N = SHIFT_TO - SHIFT_FROM + 1;
 
-int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point2f a, cv::Point2f b, cv::Point2f& shift)
+int CustomLineSegmentDetector::calcScore(cv::Point2f a, cv::Point2f b, cv::Point2f& shift)
 {
 	if (a == b) return 0;
 	int dirx = 0;
@@ -126,8 +124,8 @@ int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point2f a, cv::
 	int to   = dirx * b.x + diry * b.y;
 
 	if (from < 0) from = 0;
-	if ((dirx) && (to >= img.cols)) to = img.cols - 1;
-	if ((diry) && (to >= img.rows)) to = img.rows - 1;
+	if ((dirx) && (to >= mWidth)) to = mWidth - 1;
+	if ((diry) && (to >= mHeight)) to = mHeight - 1;
 
 	float p = diry * a.x + dirx * a.y;
 
@@ -136,8 +134,9 @@ int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point2f a, cv::
 		for(int bin = SHIFT_FROM; bin <= SHIFT_TO; bin++)
 		{
 			int j = 0.5 + p + bin;
-			cv::Point pos(dirx * i + diry * j, dirx * j + diry * i);
-			bins[bin - SHIFT_FROM] += img.at<uchar>(pos);
+			int px = dirx * i + diry * j;
+			int py = dirx * j + diry * i;
+			bins[bin - SHIFT_FROM] += mImgI[px + py * mWidth];
 		}
 	}
 
