@@ -17,6 +17,7 @@ typedef struct {
    cv::Point2f b;
    float score;
    float angle;
+   float NFA; // just for debug purposes
 } LineSegment;
 
 

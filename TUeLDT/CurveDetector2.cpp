@@ -251,9 +251,9 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 */
 	std::vector<Point> finalRes;
 
-	if (res.size() <= 8) return res;
+	if (res.size() <= 4) return res;
 
-	while(finalRes.size() != 8)
+	while(finalRes.size() != 4)
 	{
 		Point pt;
 		int maxi;

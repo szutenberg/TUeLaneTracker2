@@ -18,8 +18,8 @@ CustomLineSegmentDetector::CustomLineSegmentDetector(int width, int height):
 	mImgD(NULL),
 	quant(5),
 	angTh(22.5),
-	logEps(0),
-	densityTh(0.5),
+	logEps(-100),
+	densityTh(0.4),
 	nBins(1024)
 {
 	mImgI = new int[mSize];
@@ -59,6 +59,7 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		LineSegment tmp;
 		cv::Point2f p1(res[i*7+0], res[i*7+1]);
 		cv::Point2f p2(res[i*7+2], res[i*7+3]);
+		int NFA = res[i*7+6];
 		if (p1.y < p2.y) swap(p1, p2);
 		cv::Point2f shift;
 		int score = calcScore(p1, p2, shift);
@@ -73,6 +74,7 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		tmp.b = p2;
 		tmp.angle = angle;
 		tmp.score = score;
+		tmp.NFA = NFA;
 		seg.push_back(tmp);
 	}
 

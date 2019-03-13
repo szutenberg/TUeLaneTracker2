@@ -21,8 +21,13 @@ Mat translateImg(Mat &img, int offsetx, int offsety){
     return img;
 }
 
-const int BIRD_WIDTH = 350;
-const int BIRD_HEIGHT = 700;
+
+const float BIRD_SCALE = 1;
+const int BIRD_WIDTH = 350 * BIRD_SCALE;
+const int BIRD_HEIGHT = 700 * BIRD_SCALE;
+
+
+
 CustomLineSegmentDetector lsd(BIRD_WIDTH, BIRD_HEIGHT);
 
 int debugCt = 1;
@@ -116,9 +121,8 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		cv::GaussianBlur(imgForLaneDetection, imgForLaneDetection, cv::Size(3, 3), 0.5, 0.5);
 
 		multiply(imgForLaneDetection, imgForLaneDetection, imgForLaneDetection, 1.0/255);
-
-
     }
+
 
 #ifdef DEBUG_FILTERS
     if (debugX == 0) imshow("imgForLaneDetection", imgForLaneDetection);
@@ -167,7 +171,6 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
 	rcd.detectLane(utmp, r1, r2, mPtrLaneModel->curveRight);
 	lcd.detectLane(utmp, l1, l2, mPtrLaneModel->curveLeft);
-
 
 	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
 
@@ -226,7 +229,6 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		CurveDetector3 leftDet, rightDet;
 		leftDet.name = "Left";
 		rightDet.name = "Right";
-
 		try
 		{
 			lsd.run(birdWithoutCars);
@@ -240,11 +242,11 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		leftDet.seg = &lsd.seg;
 
 
-		Point p(200, 699);
+		Point p(200 * BIRD_SCALE - 1, BIRD_HEIGHT - 1);
 		laneR.clear();
 		int scR = rightDet.detectCurve(birdWithoutCars, p, laneR);
 
-		p = Point(150, 699);
+		p = Point(150 * BIRD_SCALE - 1 , BIRD_HEIGHT - 1);
 		laneL.clear();
 		int scL = leftDet.detectCurve(birdWithoutCars, p, laneL);
 

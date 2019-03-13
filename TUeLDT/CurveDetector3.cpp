@@ -77,12 +77,12 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 
 	for (LineSegment s : *seg)
 	{
-		if (abs(s.a.x - start.x) > 25) continue;
+		if (abs(s.a.x - start.x) > 12) continue;
 		if (abs(s.angle) > 10) continue;
 
 		Point2f dst = s.a - Point2f(start);
-		float dif = (dst.x * dst.x + dst.y * dst.y);
-		if (dif < 10) dif = 10;
+		float dif = sqrt(dst.x * dst.x + dst.y * dst.y);
+		if (dif < 50) dif = 50;
 		float d = s.score * s.score / dif;
 
 		if (maxD < d)
@@ -107,7 +107,6 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 	cv::Point2f c3(0, 3);
 	cv::Point2f c4(0, -3);
 #endif // DEBUG_CD
-
 
 	do
 	{
@@ -137,10 +136,10 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 
 			Point2f vecD = s.a - last.b;
 			angleDirNext = (atan(vecD.x / vecD.y) - atan(lastVec.x / lastVec.y)) * RAD_TO_DEG;
-			if (abs(angleDirNext) > 5) continue;
+			if (abs(angleDirNext) > 7) continue;
 
 			float squaredDist = (vecD.x * vecD.x + vecD.y * vecD.y);
-			if (squaredDist < 10) squaredDist = 10;
+			if (squaredDist < 50*50) squaredDist = 50*50;
 
 			float d = s.score * s.score / squaredDist;
 

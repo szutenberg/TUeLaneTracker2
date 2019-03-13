@@ -26,6 +26,8 @@ bool operator!=(const LineSegment& l1, const LineSegment& l2)
 
 std::ostream& operator<<(std::ostream& os, const LineSegment& d)
 {
-    os << d.a << "\t" << d.b << "\t" << (int)d.score << "\t" << d.angle << "\n";
+	cv::Point2f vec = d.a - d.b;
+	int len = sqrt(vec.x * vec.x + vec.y * vec.y);
+    os << d.a << "\t" << d.b << "\t" << (int)d.score << "\t" << d.NFA << "\t" << len << "\n";
     return os;
 }
