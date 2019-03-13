@@ -12,7 +12,7 @@
 #include "BirdView.h"
 extern int debugX, debugY, debugZ;
 
-
+//#define DEBUG_FILTERS
 
 // https://stackoverflow.com/questions/19068085/shift-image-content-with-opencv
 Mat translateImg(Mat &img, int offsetx, int offsety){
@@ -21,8 +21,9 @@ Mat translateImg(Mat &img, int offsetx, int offsety){
     return img;
 }
 
-
-
+const int BIRD_WIDTH = 350;
+const int BIRD_HEIGHT = 700;
+CustomLineSegmentDetector lsd(BIRD_WIDTH, BIRD_HEIGHT);
 
 int debugCt = 1;
 void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
@@ -49,7 +50,6 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
     split(hsv, channels);
 
-    // REMOVE ASPHALT COLOR
     {
 		const int MARGIN = 50;
 		double minVal;
@@ -109,6 +109,7 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		colors = 255 - colors;
 
 		//bitwise_and(colors, channels[CH_VALUE], imgForLaneDetection);
+		// remove asphal - not used
 
 		cv::GaussianBlur(channels[CH_VALUE], imgForLaneDetection, cv::Size(7, 7), 1, 10);
 		cv::addWeighted(channels[CH_VALUE], 11, imgForLaneDetection, -10.5, 0, imgForLaneDetection);
@@ -119,7 +120,9 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
     }
 
+#ifdef DEBUG_FILTERS
     if (debugX == 0) imshow("imgForLaneDetection", imgForLaneDetection);
+#endif // DEBUG_FILTERS
 
 	cv::Rect lROI;
 	lROI = cv::Rect(0, mCAMERA.RES_VH(0) - mSPAN, mCAMERA.RES_VH(1), mSPAN);
@@ -183,7 +186,7 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		Mat birdWithoutCars;
 
 
-		bird.configureTransform(l1, l2, r1, r2, 600, 350, 700);
+		bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
 
 
 
@@ -195,8 +198,7 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		cv::addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
 		cv::GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
 
-	    if (debugX == 0) imshow("birdRaw", birdRaw);
-	    if (debugX == 0) imshow("birdHighPass", birdHighPass);
+
 
 	    GaussianBlur(birdHighPass, tmp, cv::Size(3,3), 1, 1);
 
@@ -207,7 +209,6 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
 	    absdiff(tmp, tmp2, tmp);
 
-	    //tmp -= 10; // allowed difference without penalty
 	    tmp *= 4;
 	    tmp = 255 - tmp;
 
@@ -216,35 +217,42 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
 	    GaussianBlur(birdWithoutCars, birdWithoutCars, cv::Size(3,3), 0.5, 0.5);
 
-
+#ifdef DEBUG_FILTERS
+	    if (debugX == 0) imshow("birdRaw", birdRaw);
+	    if (debugX == 0) imshow("birdHighPass", birdHighPass);
 	    if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
-
-
-	    Mat debugBird;
-
+#endif // DEBUG_FILTERS
 
 		CurveDetector3 leftDet, rightDet;
 		leftDet.name = "Left";
 		rightDet.name = "Right";
 
+		try
+		{
+			lsd.run(birdWithoutCars);
+		}
+		catch(const char* msg)
+		{
+			cerr << "LSD exception: " << msg << "\n";
+		}
+
+		rightDet.seg = &lsd.seg;
+		leftDet.seg = &lsd.seg;
+
 
 		Point p(200, 699);
 		laneR.clear();
-		rightDet.detectCurve(birdWithoutCars, p, laneR);
+		int scR = rightDet.detectCurve(birdWithoutCars, p, laneR);
 
 		p = Point(150, 699);
 		laneL.clear();
-		leftDet.detectCurve(birdWithoutCars, p, laneL);
+		int scL = leftDet.detectCurve(birdWithoutCars, p, laneL);
+
+		// cout << scL << "\t\t" << scR << "\n";
 
 		bird.invertPoints(laneR, laneRxy);
 		bird.invertPoints(laneL, laneLxy);
-
-
-
 	}
-
-
-
 
 
 

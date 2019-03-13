@@ -4,12 +4,14 @@
 
 #include "CurveDetector3.h"
 #include <Eigen/QR>
-#include <lsd_1.6/lsd.h>
-#include <lsd_1.6/lsd.c> // fix me
 
 using namespace std;
 using namespace Eigen;
 
+const LineSegment NOT_DETECTED = {Point2f(-1, -1), Point2f(-1, -1), -1, -1};
+const float RAD_TO_DEG = 180.0 / 3.141592653;
+
+#define DEBUG_CD
 
 // Source
 void polyfit(const std::vector<double> &xv, const std::vector<double> &yv, std::vector<double> &coeff, int order)
@@ -62,174 +64,100 @@ void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Poin
 
 int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Point2f> &curve)
 {
+#ifdef DEBUG_CD
 	Mat debugBird;
     img.copyTo(debugBird);
     cvtColor(debugBird, debugBird, COLOR_GRAY2BGR);
+#endif // DEBUG_CD
 
-	int * n_out = new int;
-	double * imgD = new double[img.cols * img.rows];
+    float totalScore = 0;
 
-	if (img.isContinuous())
-	{
-		uchar * ptr = img.data;
-		for (int i = 0; i < img.cols * img.rows; i++)
-			imgD[i] = ptr[i];
-	}
-	else printf("Not continous!\n");
-
-	double * ptr = LineSegmentDetection(n_out, imgD, img.cols, img.rows, 1, 1, 5, 22.5, 0, 0.5, 1024, NULL, NULL, NULL);
-	//printf("%d\n", *n_out);
-
-	vector<Point2f> l1, l2;
-	vector<double> scores;
-	vector<float> angle;
-	double maxScore = 0;
-	/* Get params - TODO - move to another class */
-	for (int i = 0; i < *n_out; i++)
-	{
-		Point2f p1(ptr[i*7+0], ptr[i*7+1]);
-		Point2f p2(ptr[i*7+2], ptr[i*7+3]);
-		if (p1.y < p2.y) swap(p1, p2);
-		Point trash;
-		int score = calcScore(img, Point(p1+Point2f(0.5, 0.5)), Point(p2+Point2f(0.5, 0.5)), 1, trash);
-		Point2f vec = p2 - p1;
-		float angleVal = atan(vec.x / vec.y) * 180.0 / 3.14;
-		scores.push_back(score);
-		l1.push_back(p1);
-		l2.push_back(p2);
-		angle.push_back(angleVal);
-		if (score > maxScore) maxScore = score;
-	}
-
-	maxScore /= 100.0;
-	for (size_t i = 0; i < scores.size(); i++)
-	{
-		scores[i] /= maxScore; // now range from 0 to 100
-		line(debugBird, l1[i], l2[i], CvScalar(0, scores[i] * 2, 0), 2);
-	}
-
-	int iSt = 0;
+	LineSegment best = NOT_DETECTED;
 	float maxD = 0.1;
-	for (size_t i = 0; i < l1.size(); i++)
-	{
-		if (abs(l1[i].x - start.x) > 25) continue;
-		if (abs(angle[i]) > 10) continue;
 
-		Point2f dst = l1[i] - Point2f(start);
+	for (LineSegment s : *seg)
+	{
+		if (abs(s.a.x - start.x) > 25) continue;
+		if (abs(s.angle) > 10) continue;
+
+		Point2f dst = s.a - Point2f(start);
 		float dif = (dst.x * dst.x + dst.y * dst.y);
 		if (dif < 10) dif = 10;
-		float d = scores[i] * scores[i] / dif;
+		float d = s.score * s.score / dif;
 
 		if (maxD < d)
 		{
 			maxD = d;
-			iSt = i;
+			best = s;
 		}
 	}
-	//cout << start << l2[iSt] << endl;
 
-	curve.push_back(l1[iSt]);
-	curve.push_back(l2[iSt]);
+	if (best == NOT_DETECTED) return -1;
 
-	//line(debugBird, l1[iSt], l2[iSt], CvScalar(200, 200, 0), 2);
+	curve.push_back(best.a);
+	curve.push_back(best.b);
 
-	int color = 255;
-	int best;
+#ifdef DEBUG_CD
+	for (LineSegment s : *seg)
+	{
+		line(debugBird, s.a, s.b, CvScalar(0, s.score*2.5, 0), 2);
+	}
+	cv::Point2f c1(-3, 0);
+	cv::Point2f c2(3, 0);
+	cv::Point2f c3(0, 3);
+	cv::Point2f c4(0, -3);
+#endif // DEBUG_CD
+
 
 	do
 	{
-		Point2f vecSt = l2[iSt] - l1[iSt];
+#ifdef DEBUG_CD
+		line(debugBird, best.a + c1, best.a + c2, CvScalar(0, 0, 200), 2);
+		line(debugBird, best.a + c3, best.a + c4, CvScalar(0, 0, 200), 2);
 
-		float maxD = 0;
-		best = -1;
+		line(debugBird, best.b + c1, best.b + c2, CvScalar(0, 0, 200), 2);
+		line(debugBird, best.b + c3, best.b + c4, CvScalar(0, 0, 200), 2);
+#endif // DEBUG_CD
 
-		for (size_t i = 0; i < l1.size(); i++)
+		LineSegment last = best;
+		Point2f lastVec = last.b - last.a;
+		float lastLen = sqrt(lastVec.x * lastVec.x + lastVec.y * lastVec.y);
+		totalScore += lastLen * last.score;
+
+
+		float maxD = 0.1;
+		best = NOT_DETECTED;
+
+		for (LineSegment s : *seg)
 		{
-			if (l1[i].y >= l2[iSt].y) continue;
-			if (abs(angle[i] - angle[iSt]) > 12) continue;
+			if (last.b.y < s.a.y) continue;
+			if (abs(s.angle - last.angle) > 12) continue;
 
-			Point2f vecD = l1[i] - l2[iSt];
-			if (abs(atan(vecD.x / vecD.y) - atan(vecSt.x / vecSt.y))  > (5.0 * 3.14 / 180.0)) continue;
+			float angleDirNext; // angle between direction of last and beginning of s
 
-			Point2f dst = l1[i] - l2[iSt];
-			float dif = (dst.x * dst.x + dst.y * dst.y);
-			if (dif < 10) dif = 10;
-			float d = scores[i] * scores[i] / dif;
+			Point2f vecD = s.a - last.b;
+			angleDirNext = (atan(vecD.x / vecD.y) - atan(lastVec.x / lastVec.y)) * RAD_TO_DEG;
+			if (abs(angleDirNext) > 5) continue;
+
+			float squaredDist = (vecD.x * vecD.x + vecD.y * vecD.y);
+			if (squaredDist < 10) squaredDist = 10;
+
+			float d = s.score * s.score / squaredDist;
 
 			if (maxD < d)
 			{
 				maxD = d;
-				best = i;
+				best = s;
 			}
 		}
+	}while(best != NOT_DETECTED);
+/*
 
-		//cout << maxD << "\t" << best << endl;
-		if (maxD < 0.1) best = -1;
-		if (best != -1)
-		{
-			color -= 30;
-			//line(debugBird, l1[best], l2[best], CvScalar(color, color, color), 2);
-			iSt = best;
-
-
-			Point2f vec = l2[best] - l1[best];
-
-			float minLen = 5 * 5;
-			int found = -1;
-			for (int i = 0; i < (int)l1.size(); i++)
-			{
-				if (i == best) continue;
-				if (abs(angle[i] - angle[best]) > 2) continue;
-				Point2f dst = l1[i] - l1[best];
-				float len = dst.x * dst.x + dst.y * dst.y;
-
-				if (minLen > len)
-				{
-					minLen = len;
-					found = i;
-				}
-			}
-
-			vector<int> linesToAdd;
-			linesToAdd.push_back(best);
-			if (found != -1) linesToAdd.push_back(found);
-
-
-			//cout << "For " << l1[best] << l2[best] << angle[best] << endl;
-			//if (found != -1) cout << "found " << l1[found] << l2[found] << angle[found] << "    " << minLen << endl;
-
-
-			for (int ind : linesToAdd)
-			{
-				curve.push_back(l1[ind]);
-				vec = l2[ind] - l1[ind];
-
-				if (l2[ind].y > 0)
-				{
-					int segments = sqrt(vec.x * vec.x + vec.y * vec.y) * scores[ind] / (700-l1[ind].y) / 4.0;
-					if (segments > 1)
-					{
-						segments -=1;
-						vec /= (float)segments;
-
-						for (int i = 1; i < segments; i++) curve.push_back(l1[ind] + (float)i * vec);
-					}
-				}
-				curve.push_back(l2[ind]);
-			}
-		}
-	}while(best != -1);
-
-	cv::Point c1(-3, 0);
-	cv::Point c2(3, 0);
-	cv::Point c3(0, 3);
-	cv::Point c4(0, -3);
 	for (Point p : curve)
 	{
 		line(debugBird, p + c1, p + c2, CvScalar(0, 0, 200), 2);
 		line(debugBird, p + c3, p + c4, CvScalar(0, 0, 200), 2);
 	}
-	   imshow(name.c_str(), debugBird);
 
 
 	if (curve.size() > 3)
@@ -240,108 +168,12 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 		curve = newCurve;
 	}
 
+*/
 
+#ifdef DEBUG_CD
+	imshow(name.c_str(), debugBird);
+#endif  // DEBUG_CD
 
-
-	return 0;
-}
-
-
-
-inline int CurveDetector3::isPointOutOfRange(Point a, int width, int height)
-{
-	return ((a.x < 1) || (a.y < 1) || (a.x > (width - 1)) || (a.y > (height - 1)));
-}
-
-
-int CurveDetector3::calcScore(const cv::Mat& img, Point a, Point b, float d, Point &maxPoint)
-{
-	int maxVal = 0;
-	int res = 0;
-	if (a == b) return 0;
-	float slope = (float)(b.y - a.y) / (b.x - a.x);
-	int dirx = 0;
-	int diry = 0;
-	int swapped = 0;
-	Point startPoint = a;
-	if (abs(slope) < 1)
-	{
-		dirx = 1;
-		if (a.x > b.x)
-		{
-			swap(a, b);
-			swapped = 1;
-		}
-	}
-	else
-	{
-		diry = 1;
-		if (a.y > b.y)
-		{
-			swap(a, b);
-			swapped = 1;
-		}
-		slope = 1 / slope;
-	}
-
-	int from = dirx * a.x + diry * a.y;
-	int to   = dirx * b.x + diry * b.y;
-
-	if (from < 0) from = 0;
-	if ((dirx) && (to >= img.cols)) to = img.cols - 1;
-	if ((diry) && (to >= img.rows)) to = img.rows - 1;
-
-	int counter = 0;
-
-	float p = diry * a.x + dirx * a.y;
-
-	float range = d * sqrt(slope * slope + 1);
-
-	int sum = 0;
-	const int WIDTH = 17;
-	Point arr[WIDTH];
-	int values[WIDTH];
-
-	for (int i = 0; i < WIDTH; i++) values[i] = 0;
-	int it= 0;
-
-
-	for (int i = from; i <= to; i++, p+=slope)
-	{
-		for (int j = p - range; j <= p + range; j++, counter++)
-		{
-			// TODO: optimize - make two loops (dirx=0 and dirx=1)
-			Point pos(dirx * i + diry * j, dirx * j + diry * i);
-			/*if (isPointOutOfRange(pos, img.cols, img.rows)){
-				counter--;
-				continue;
-			}*/
-
-			int value = img.at<uchar>(pos);
-			//if ((     (((i - from) > 30) && swapped) || (((to - i) > 30) && !swapped) ) && (value > maxVal))
-
-			Point pt(dirx * i + diry * j, dirx * j + diry * i);
-
-			Point lenVec = pt - startPoint;
-			float len = lenVec.x * lenVec.x + lenVec.y * lenVec.y;
-
-				sum = sum + value - values[it];
-
-				values[it] = value;
-				arr[it] = pt;
-				it = (it + 1) % WIDTH;
-				if (len > 100*100)
-				{
-					if (sum > maxVal)
-					{
-						maxPoint = arr[(it + WIDTH/2)%WIDTH];
-						maxVal = sum ;
-					}
-				}
-				res += value;
-		}
-	}
-
-	return res / counter;
+	return totalScore/100;
 }
 

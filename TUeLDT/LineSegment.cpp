@@ -1,0 +1,31 @@
+/*
+ * LineSegment.cpp
+ *
+ *  Created on: Mar 13, 2019
+ *      Author: msz
+ */
+
+#include "LineSegment.h"
+
+
+
+bool operator<(const LineSegment& l1, const LineSegment& l2)
+{
+    return l1.a.y < l2.a.y;
+}
+
+bool operator==(const LineSegment& l1, const LineSegment& l2)
+{
+    return ((l1.a == l2.a) && (l1.b == l2.b) && (l1.score == l2.score) && (l1.angle == l2.angle));
+}
+
+bool operator!=(const LineSegment& l1, const LineSegment& l2)
+{
+    return !(l1 == l2);
+}
+
+std::ostream& operator<<(std::ostream& os, const LineSegment& d)
+{
+    os << d.a << "\t" << d.b << "\t" << (int)d.score << "\t" << d.angle << "\n";
+    return os;
+}
