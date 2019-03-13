@@ -19,7 +19,7 @@ public:
 	CustomLineSegmentDetector(int width, int height);
 	bool run(cv::Mat img);
 	virtual ~CustomLineSegmentDetector();
-	int calcScore(const cv::Mat& img, cv::Point a, cv::Point b);
+	int calcScore(const cv::Mat& img, cv::Point2f a, cv::Point2f b, cv::Point2f& shift);
 
 	double* mImgD;
 	int* mImgI;

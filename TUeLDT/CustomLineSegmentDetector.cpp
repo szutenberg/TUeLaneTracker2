@@ -62,7 +62,10 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		cv::Point2f p1(res[i*7+0], res[i*7+1]);
 		cv::Point2f p2(res[i*7+2], res[i*7+3]);
 		if (p1.y < p2.y) swap(p1, p2);
-		int score = calcScore(img, cv::Point(p1+cv::Point2f(0.5, 0.5)), cv::Point(p2+cv::Point2f(0.5, 0.5)));
+		cv::Point2f shift;
+		int score = calcScore(img, p1, p2, shift);
+		p1 += shift;
+		p2 += shift;
 		if (score > maxScore) maxScore = score;
 
 		cv::Point2f vec = p2 - p1;
@@ -87,23 +90,26 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 	return true;
 }
 
+const int SHIFT_FROM = -2;
+const int SHIFT_TO = 2;
+const int SHIFT_N = SHIFT_TO - SHIFT_FROM + 1;
 
-int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point a, cv::Point b)
+int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point2f a, cv::Point2f b, cv::Point2f& shift)
 {
-	int maxVal = 0;
-	int res = 0;
 	if (a == b) return 0;
-	float slope = (float)(b.y - a.y) / (b.x - a.x);
 	int dirx = 0;
 	int diry = 0;
-	int swapped = 0;
+	int bins[SHIFT_N];
+	for (int i = 0; i < SHIFT_N; i++) bins[i] = 0;
+	int counter = 0;
+	float slope = (float)(b.y - a.y) / (b.x - a.x);
+
 	if (abs(slope) < 1)
 	{
 		dirx = 1;
 		if (a.x > b.x)
 		{
 			swap(a, b);
-			swapped = 1;
 		}
 	}
 	else
@@ -112,7 +118,6 @@ int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point a, cv::Po
 		if (a.y > b.y)
 		{
 			swap(a, b);
-			swapped = 1;
 		}
 		slope = 1 / slope;
 	}
@@ -124,22 +129,33 @@ int CustomLineSegmentDetector::calcScore(const cv::Mat& img, cv::Point a, cv::Po
 	if ((dirx) && (to >= img.cols)) to = img.cols - 1;
 	if ((diry) && (to >= img.rows)) to = img.rows - 1;
 
-	int counter = 0;
-
 	float p = diry * a.x + dirx * a.y;
 
-	int sum = 0;
-
-	for (int i = from; i <= to; i++, p+=slope)
+	for (int i = from; i <= to; i++, p+=slope, counter++)
 	{
-		for (int j = p-2; j <= p+2; j++, counter++)
+		for(int bin = SHIFT_FROM; bin <= SHIFT_TO; bin++)
 		{
+			int j = 0.5 + p + bin;
 			cv::Point pos(dirx * i + diry * j, dirx * j + diry * i);
-			res += img.at<uchar>(pos);
+			bins[bin - SHIFT_FROM] += img.at<uchar>(pos);
 		}
 	}
 
-	return res / counter;
+	int maxVal = -1;
+	int maxBin;
+
+	for (int i = 0; i < SHIFT_N; i++)
+	{
+		if (maxVal < bins[i])
+		{
+			maxBin = i;
+			maxVal = bins[i];
+		}
+	}
+
+	shift.x = diry * (maxBin + SHIFT_FROM);
+	shift.y = dirx * (maxBin + SHIFT_FROM);
+	return bins[maxBin] / counter;
 }
 
 
