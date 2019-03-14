@@ -84,6 +84,8 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		seg[i].score /= maxScore;
 	}
 
+	sort(seg.begin(), seg.end(), compareScores);
+
 	delete n_out;
 	delete [] res;
 

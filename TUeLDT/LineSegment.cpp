@@ -31,3 +31,9 @@ std::ostream& operator<<(std::ostream& os, const LineSegment& d)
     os << d.a << "\t" << d.b << "\t" << (int)d.score << "\t" << d.NFA << "\t" << len << "\n";
     return os;
 }
+
+
+bool compareScores(const LineSegment& l1, const LineSegment& l2)
+{
+    return (l1.score > l2.score);
+}

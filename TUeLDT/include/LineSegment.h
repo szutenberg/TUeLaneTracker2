@@ -26,5 +26,6 @@ bool operator==(const LineSegment& l1, const LineSegment& l2);
 
 bool operator!=(const LineSegment& l1, const LineSegment& l2);
 std::ostream& operator<<(std::ostream& os, const LineSegment& d);
+bool compareScores(const LineSegment& l1, const LineSegment& l2);
 
 #endif /* TUELDT_LINESEGMENT_H_ */
