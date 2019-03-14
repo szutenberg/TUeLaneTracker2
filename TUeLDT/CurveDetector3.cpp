@@ -9,6 +9,8 @@ using namespace std;
 const LineSegment NOT_DETECTED = {Point2f(-1, -1), Point2f(-1, -1), -1, -1};
 const float RAD_TO_DEG = 180.0 / 3.141592653;
 
+extern int debugX;
+
 #define DEBUG_CD
 
 void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Point zero=Point(0,0))
@@ -166,7 +168,7 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 
 
 #ifdef DEBUG_CD
-	imshow(name.c_str(), debugBird);
+	if (debugX == 0) imshow(name.c_str(), debugBird);
 #endif  // DEBUG_CD
 
 	return totalScore/100;

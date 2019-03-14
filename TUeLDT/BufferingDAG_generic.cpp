@@ -249,6 +249,7 @@ mProfiler.start("COMPUTE_PROBABILITIES");
 	mBufferPool->Probability[mBufferPos] = mProbMap_GradMag + mProbMap_Gray;
 	mMask = mBufferPool->Probability[mBufferPos] <0 ;
 	mBufferPool->Probability[mBufferPos].setTo(0,mMask);
+	mBufferPool->Probability[mBufferPos].copyTo(mProbMapNoTangent);
 
 
 	//Gradient Tangent Probability Map

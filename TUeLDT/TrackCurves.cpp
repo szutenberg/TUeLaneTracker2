@@ -12,7 +12,7 @@
 #include "BirdView.h"
 extern int debugX, debugY, debugZ;
 
-//#define DEBUG_FILTERS
+#define DEBUG_FILTERS
 
 // https://stackoverflow.com/questions/19068085/shift-image-content-with-opencv
 Mat translateImg(Mat &img, int offsetx, int offsety){
@@ -281,6 +281,7 @@ void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
 	cv::Mat map;
 
 	probMap.copyTo(map);
+	map.convertTo(map, CV_8U, 0.5);
 
 
 #ifdef DEBUG_FILTERS
@@ -328,6 +329,11 @@ void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
 		map.copyTo(input);
 
 		birdRaw = bird.applyTransformation(input);
+
+		// border - to avoid seg fault when calculating score
+		cv::Mat mask = cv::Mat::zeros(birdRaw.rows, birdRaw.cols, CV_8U);
+		mask(Rect(2, 2, birdRaw.cols - 4, birdRaw.rows - 4)) = 255;
+		bitwise_and(birdRaw, mask, birdRaw);
 
 #ifdef DEBUG_FILTERS
 	    if (debugX == 0) imshow("birdRaw", birdRaw);
@@ -431,14 +437,12 @@ void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
 
 	for (Point2f p: laneRxy)
 	{
-		int ymin = mPtrLaneModel->curveRight[1].y;
-		if (p.y < ymin) mPtrLaneModel->curveRight.push_back(p);
+		mPtrLaneModel->curveRight.push_back(p);
 	}
 
 	for (Point2f p: laneLxy)
 	{
-		int ymin = mPtrLaneModel->curveLeft[1].y;
-		if (p.y < ymin) mPtrLaneModel->curveLeft.push_back(p);
+		mPtrLaneModel->curveLeft.push_back(p);
 	}
 
 	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)

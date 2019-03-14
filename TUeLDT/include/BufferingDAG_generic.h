@@ -122,6 +122,9 @@ protected:
 	cv::Mat 			mProbMap_GradDir;
 	
 	
+	cv::Mat 			mProbMapNoTangent;
+
+
 public:	
 	/** For initialising of the DAG [ONE TIME EXECUTION]  */
 	int  init_DAG(const Templates & TEMPLATES, const size_t & BUFFER_SIZE);
