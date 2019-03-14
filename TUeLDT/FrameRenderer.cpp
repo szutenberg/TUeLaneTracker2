@@ -101,7 +101,7 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 		}
 	}
 
-
+/*
 	for(int i = 1; i < (int)Lane.benchL.size(); i++)
 	{
 		if (Lane.benchL[i-1].x == -2) continue;
@@ -115,7 +115,7 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 		if (Lane.benchR[i].x == -2) continue;
 		line(FRAME, Lane.benchR[i-1], Lane.benchR[i], CvScalar(0, 0, 255), 2);
 	}
-	
+*/
 	for(int i = 1; i < (int)Lane.curveRight.size(); i++)
 	{
 		line(FRAME, Lane.curveRight[i-1], Lane.curveRight[i], CvScalar(255, 0, 0), 2);

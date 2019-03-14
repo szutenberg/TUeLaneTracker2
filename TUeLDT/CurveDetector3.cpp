@@ -24,7 +24,7 @@ void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Poin
 	}
 	polyFit(xv, yv, coeff, 2);
 
-	for (int y = 695; y >= -105; y-=50)
+	for (int y = 700; y >= -105; y-=25)
 	{
 		float yc = zero.y - y ;
 		float xc = yc * yc * coeff[2] + yc * coeff[1] + coeff[0] + zero.x;
