@@ -267,3 +267,187 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		mPtrLaneModel->curveLeft[i].y += FrameRGB.rows - tmp.rows;
 	}
 }
+
+
+
+
+
+
+
+
+
+void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
+{
+	cv::Mat map;
+
+	probMap.copyTo(map);
+
+
+#ifdef DEBUG_FILTERS
+    if (debugX == 0) imshow("imgForLaneDetection", map);
+#endif // DEBUG_FILTERS
+
+	CurveDetector2 lcd, rcd;
+
+	cv::Point r1, r2, l1, l2;
+
+	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
+	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+
+	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
+	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+
+	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
+	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+
+	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
+	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+
+
+	mPtrLaneModel->curveRight.clear();
+	mPtrLaneModel->curveLeft.clear();
+
+	rcd.detectLane(map, r1, r2, mPtrLaneModel->curveRight);
+	lcd.detectLane(map, l1, l2, mPtrLaneModel->curveLeft);
+
+	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
+
+	cv::Point c1(-3, 0);
+	cv::Point c2(3, 0);
+	cv::Point c3(0, 3);
+	cv::Point c4(0, -3);
+
+	if ((mPtrLaneModel->curveRight.size() == 2) && (mPtrLaneModel->curveLeft.size() == 2))
+	{
+		BirdView bird;
+		Mat input;
+		Mat birdRaw;
+
+		bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
+
+		map.copyTo(input);
+
+		birdRaw = bird.applyTransformation(input);
+
+#ifdef DEBUG_FILTERS
+	    if (debugX == 0) imshow("birdRaw", birdRaw);
+#endif // DEBUG_FILTERS
+
+		CurveDetector3 leftDet, rightDet;
+		leftDet.name = "Left";
+		rightDet.name = "Right";
+		try
+		{
+			lsd.run(birdRaw);
+		}
+		catch(const char* msg)
+		{
+			cerr << "LSD exception: " << msg << "\n";
+		}
+
+		rightDet.seg = &lsd.seg;
+		leftDet.seg = &lsd.seg;
+
+
+		Point p(200 * BIRD_SCALE - 1, BIRD_HEIGHT - 1);
+		laneR.clear();
+		int scR = rightDet.detectCurve(birdRaw, p, laneR);
+
+		p = Point(150 * BIRD_SCALE - 1 , BIRD_HEIGHT - 1);
+		laneL.clear();
+		int scL = leftDet.detectCurve(birdRaw, p, laneL);
+
+		// cout << scL << "\t\t" << scR << "\n";
+
+		bird.invertPoints(laneR, laneRxy);
+		bird.invertPoints(laneL, laneLxy);
+	}
+
+
+
+	///////// DEBUG WINDOW //////////////////////////////////////
+
+	if (debugX == 0)
+	{
+		cv::Mat FrameDbg;
+		cv::cvtColor(map, FrameDbg, cv::COLOR_GRAY2BGR);
+
+
+
+		for (vector<cv::Point> v : rcd.debugCurves)
+		{
+			for (size_t i = 1; i < v.size(); i++)
+			{
+				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
+			}
+		}
+
+		for (vector<cv::Point> v : lcd.debugCurves)
+		{
+			for (size_t i = 1; i < v.size(); i++)
+			{
+				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
+			}
+		}
+
+		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
+		{
+			line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
+		}
+
+		for(int i = 1; i < (int)mPtrLaneModel->curveLeft.size(); i++)
+		{
+			line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
+		}
+
+		for (Point pt : mPtrLaneModel->curveRight)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		for (Point pt : mPtrLaneModel->curveLeft)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		for (Point pt : laneLxy)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+		for (Point pt : laneRxy)
+		{
+			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
+			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
+		}
+
+
+		imshow("debug", FrameDbg);
+	}
+
+
+	for (Point2f p: laneRxy)
+	{
+		int ymin = mPtrLaneModel->curveRight[1].y;
+		if (p.y < ymin) mPtrLaneModel->curveRight.push_back(p);
+	}
+
+	for (Point2f p: laneLxy)
+	{
+		int ymin = mPtrLaneModel->curveLeft[1].y;
+		if (p.y < ymin) mPtrLaneModel->curveLeft.push_back(p);
+	}
+
+	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
+	{
+		mPtrLaneModel->curveRight[i].y += 720 - map.rows;
+	}
+
+	for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
+	{
+		mPtrLaneModel->curveLeft[i].y += 720 - map.rows;
+	}
+}

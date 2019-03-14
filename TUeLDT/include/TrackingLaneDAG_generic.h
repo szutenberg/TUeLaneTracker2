@@ -109,6 +109,8 @@ public:
 	int  init_DAG(LaneFilter* laneFilter, VanishingPtFilter* vpFilter);
 	void execute(cv::UMat& FrameGRAY);
 	void trackCurves(cv::UMat& FrameRGB);
+	void trackCurvesProb(cv::Mat& probMap);
+
 };
 
 #endif // TRACKINGLANESDAG_GENERIC_H
