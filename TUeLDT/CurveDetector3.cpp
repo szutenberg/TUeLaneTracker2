@@ -3,40 +3,13 @@
 * ****************************************************************************/
 
 #include "CurveDetector3.h"
-#include <Eigen/QR>
-
+#include "polyFit.h"
 using namespace std;
-using namespace Eigen;
 
 const LineSegment NOT_DETECTED = {Point2f(-1, -1), Point2f(-1, -1), -1, -1};
 const float RAD_TO_DEG = 180.0 / 3.141592653;
 
 #define DEBUG_CD
-
-// Source
-void polyfit(const std::vector<double> &xv, const std::vector<double> &yv, std::vector<double> &coeff, int order)
-{
-	Eigen::MatrixXd A(xv.size(), order+1);
-	Eigen::VectorXd yv_mapped = Eigen::VectorXd::Map(&yv.front(), yv.size());
-	Eigen::VectorXd result;
-
-	assert(xv.size() == yv.size());
-	assert(xv.size() >= order+1);
-
-	// create matrix
-	for (size_t i = 0; i < xv.size(); i++)
-	for (size_t j = 0; j < order+1; j++)
-		A(i, j) = pow(xv.at(i), j);
-
-	// solve for linear least squares fit
-	result = A.householderQr().solve(yv_mapped);
-
-	coeff.resize(order+1);
-	for (size_t i = 0; i < order+1; i++)
-		coeff[i] = result[i];
-}
-
-
 
 void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Point zero=Point(0,0))
 {
@@ -49,15 +22,15 @@ void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Poin
 		xv.push_back(zero.y - p.y );
 		yv.push_back(p.x - zero.x);
 	}
-	polyfit(xv, yv, coeff, 2);
+	polyFit(xv, yv, coeff, 2);
 
-	for (int y = 695; y >= 0; y-=50)
+	for (int y = 695; y >= -105; y-=50)
 	{
 		float yc = zero.y - y ;
 		float xc = yc * yc * coeff[2] + yc * coeff[1] + coeff[0] + zero.x;
 		curve.push_back(Point2f(xc, y));
 	}
-	//printf("%lf\t%lf\t%lf\n", coeff[2], coeff[1], coeff[0]);
+	printf("%lf\t%lf\t%lf\n", coeff[2], coeff[1], coeff[0]);
 
 }
 
@@ -174,7 +147,6 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 		}
 
 		curve.push_back(seg.b);
-
 	}
 
 
