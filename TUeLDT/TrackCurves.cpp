@@ -27,7 +27,6 @@ const int BIRD_WIDTH = 350 * BIRD_SCALE;
 const int BIRD_HEIGHT = 700 * BIRD_SCALE;
 
 
-
 CustomLineSegmentDetector lsd(BIRD_WIDTH, BIRD_HEIGHT);
 
 int debugCt = 1;
@@ -39,89 +38,23 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
 	cv::Mat hsv;
 	cv::Mat tmp;
-	cv::Mat colors;
 
     cvtColor(FrameRGB, hsv, COLOR_BGR2HSV);
 	//const size_t CH_HUE = 0;
-    const size_t CH_SATURATION = 1;
+    //const size_t CH_SATURATION = 1;
     const size_t CH_VALUE = 2;
     const size_t BUFFER_SIZE = 5;
-
-	// cv::Mat yellow_lines;
-    // inRange(hsv, Scalar(10, 70, 40), Scalar(40, 255, 255), yellow_lines);
 
     Mat channels[3];
     Mat imgForLaneDetection;
 
     split(hsv, channels);
 
-    {
-		const int MARGIN = 50;
-		double minVal;
-		double maxVal;
-		Point minLoc;
-		Point maxLoc;
-		int maxS, maxV;
-		Mat image_roi;
+	cv::GaussianBlur(channels[CH_VALUE], imgForLaneDetection, cv::Size(7, 7), 1, 10);
+	cv::addWeighted(channels[CH_VALUE], 11, imgForLaneDetection, -10.5, 0, imgForLaneDetection);
+	cv::GaussianBlur(imgForLaneDetection, imgForLaneDetection, cv::Size(3, 3), 0.5, 0.5);
 
-		cv::Point r1, r2, l1, l2;
-
-		r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
-		r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
-
-		r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
-		r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
-
-		l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
-		l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
-
-		l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
-		l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
-
-		cv::Point ravg = Point((r1+r2)/2);
-		cv::Point lavg = Point((l1+l2)/2);
-
-		int rx, ry, rw, rh;
-
-		rx = lavg.x + MARGIN;
-		ry = lavg.y;
-		rw = ravg.x - lavg.x - 2* MARGIN;
-		rh = l1.y - lavg.y;
-
-		Rect region_of_interest = Rect(rx, ry, rw, rh);
-
-		{ // DEBUG
-			vector<cv::Point> area;
-
-			area.push_back(Point(rx, ry+rh));
-			area.push_back(Point(rx, ry));
-			area.push_back(Point(rx+rw, ry));
-			area.push_back(Point(rx+rw, ry+rh));
-
-			mPtrLaneModel->debugCurves.clear();
-			mPtrLaneModel->debugCurves.push_back(area);
-		}
-
-		image_roi = channels[CH_SATURATION](region_of_interest);
-		minMaxLoc( image_roi, &minVal, &maxVal, &minLoc, &maxLoc );
-		maxS = maxVal;
-
-		image_roi = channels[CH_VALUE](region_of_interest);
-		minMaxLoc( image_roi, &minVal, &maxVal, &minLoc, &maxLoc );
-		maxV = maxVal;
-
-		inRange(hsv, Scalar(0, 0, 0), Scalar(180, maxS, maxV), colors);
-		colors = 255 - colors;
-
-		//bitwise_and(colors, channels[CH_VALUE], imgForLaneDetection);
-		// remove asphal - not used
-
-		cv::GaussianBlur(channels[CH_VALUE], imgForLaneDetection, cv::Size(7, 7), 1, 10);
-		cv::addWeighted(channels[CH_VALUE], 11, imgForLaneDetection, -10.5, 0, imgForLaneDetection);
-		cv::GaussianBlur(imgForLaneDetection, imgForLaneDetection, cv::Size(3, 3), 0.5, 0.5);
-
-		multiply(imgForLaneDetection, imgForLaneDetection, imgForLaneDetection, 1.0/255);
-    }
+	multiply(imgForLaneDetection, imgForLaneDetection, imgForLaneDetection, 1.0/255);
 
 
 #ifdef DEBUG_FILTERS
@@ -146,9 +79,6 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
 	bufferIt = (bufferIt + 1) % BUFFER_SIZE;
 
-	cv::UMat utmp;
-	tmp.copyTo(utmp);
-
 	CurveDetector2 lcd, rcd;
 
 	cv::Point r1, r2, l1, l2;
@@ -167,10 +97,10 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 
 	mPtrLaneModel->curveRight.clear();
 	mPtrLaneModel->curveLeft.clear();
-	GaussianBlur( utmp, utmp, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
+	GaussianBlur( tmp, tmp, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
 
-	rcd.detectLane(utmp, r1, r2, mPtrLaneModel->curveRight);
-	lcd.detectLane(utmp, l1, l2, mPtrLaneModel->curveLeft);
+	rcd.detectLane(tmp, r1, r2, mPtrLaneModel->curveRight);
+	lcd.detectLane(tmp, l1, l2, mPtrLaneModel->curveLeft);
 
 	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
 
@@ -188,23 +118,16 @@ void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
 		Mat tmp, tmp2;
 		Mat birdWithoutCars;
 
-
 		bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
-
-
 
 		channels[CH_VALUE](lROI).copyTo(input);
 
 		birdRaw = bird.applyTransformation(input);
 
-		cv::GaussianBlur(birdRaw, birdHighPass, cv::Size(7, 7), 1, 10);
-		cv::addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
-		cv::GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
-
-
-
+		GaussianBlur(birdRaw, birdHighPass, cv::Size(7, 7), 1, 10);
+		addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
+		GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
 	    GaussianBlur(birdHighPass, tmp, cv::Size(3,3), 1, 1);
-
 
 	    tmp.copyTo(tmp2);
 	    translateImg(tmp2,-3, 0);

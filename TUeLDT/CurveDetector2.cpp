@@ -6,7 +6,7 @@
 
 using namespace std;
 
-int CurveDetector2::detectLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane)
+int CurveDetector2::detectLane(const cv::Mat& img, Point p1, Point p2, std::vector<Point> &lane)
 {
 	int maxVal = -1;
 	Point2f vec = p2 - p1;
@@ -30,7 +30,7 @@ int CurveDetector2::detectLane(const cv::UMat& img, Point p1, Point p2, std::vec
 }
 
 
-int CurveDetector2::adjustLane(const cv::UMat& img, Point p1, Point p2, std::vector<Point> &lane)
+int CurveDetector2::adjustLane(const cv::Mat& img, Point p1, Point p2, std::vector<Point> &lane)
 {
 	int maxVal = -1;
 	Point a, b;
@@ -91,43 +91,13 @@ int CurveDetector2::adjustLane(const cv::UMat& img, Point p1, Point p2, std::vec
 	return maxVal;
 }
 
-// not used
-void CurveDetector2::grabPoints(Point a, Point b, std::vector<Point> &points)
-{
-	Point e1(min(a.x, b.x), min(a.y, b.y));
-	Point e2(max(a.x, b.x) + 1, max(a.y, b.y) + 1);
-
-	// Ax + By + C = 0
-	// d = |Ax + By + C| / sqrt(A*A + B*B)
-
-	int lA = a.y - b.y;
-	int lB = b.x - a.x;
-	int lC = a.x * b.y - b.x * a.y;
-	int div = lA * lA + lB * lB;
-
-	for (int x = e1.x; x <= e2.x; x++)
-	{
-		for (int y = e1.y; y <= e2.y; y++)
-		{
-			int d = (lA * x + lB * y + lC);
-			d *= d;
-
-			if (d <= div)
-			{
-				points.push_back(Point(x, y));
-			}
-		}
-	}
-}
-
-
 inline int CurveDetector2::isPointOutOfRange(Point a, int width, int height)
 {
 	return ((a.x < 1) || (a.y < 1) || (a.x > (width - 1)) || (a.y > (height - 1)));
 }
 
 
-std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point pt, Point2f vec, int step)
+std::vector<Point> CurveDetector2::selectNextPoints(const cv::Mat& img, Point pt, Point2f vec, int step)
 {
 	std::vector<Point> res;
 	vector<int> resValues;
@@ -218,7 +188,7 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 					continue;
 				}
 
-				int val = img.getMat(ACCESS_READ).at<uchar>(pos);
+				int val = img.at<uchar>(pos);
 
 				avg += val;
 				avg -= values[avgIt];
@@ -276,7 +246,7 @@ std::vector<Point> CurveDetector2::selectNextPoints(const cv::UMat& img, Point p
 	return finalRes;
 }
 
-int CurveDetector2::calcScore(const cv::UMat& img, Point a, Point b, float d)
+int CurveDetector2::calcScore(const cv::Mat& img, Point a, Point b, float d)
 {
 	int res = 0;
 	if (a == b) return 0;
@@ -319,7 +289,7 @@ int CurveDetector2::calcScore(const cv::UMat& img, Point a, Point b, float d)
 				counter--;
 				continue;
 			}
-			res += img.getMat(ACCESS_READ).at<uchar>(pos);
+			res += img.at<uchar>(pos);
 		}
 	}
 
