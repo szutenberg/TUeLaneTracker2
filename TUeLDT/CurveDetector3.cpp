@@ -46,7 +46,6 @@ void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Poin
 
 	for (Point2f p : points)
 	{
-		if (p.y < 100) continue;
 		xv.push_back(zero.y - p.y );
 		yv.push_back(p.x - zero.x);
 	}
@@ -93,9 +92,7 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 	}
 
 	if (best == NOT_DETECTED) return -1;
-
-	curve.push_back(best.a);
-	curve.push_back(best.b);
+	vector<LineSegment> detSeg;
 
 #ifdef DEBUG_CD
 	for (LineSegment s : *seg)
@@ -122,6 +119,7 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 		Point2f lastVec = last.b - last.a;
 		float lastLen = sqrt(lastVec.x * lastVec.x + lastVec.y * lastVec.y);
 		totalScore += lastLen * last.score;
+		detSeg.push_back(best);
 
 
 		float maxD = 0.1;
@@ -150,24 +148,50 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 			}
 		}
 	}while(best != NOT_DETECTED);
-/*
 
-	for (Point p : curve)
+
+
+	for (LineSegment seg : detSeg)
 	{
-		line(debugBird, p + c1, p + c2, CvScalar(0, 0, 200), 2);
-		line(debugBird, p + c3, p + c4, CvScalar(0, 0, 200), 2);
+		Point2f vec = seg.b - seg.a;
+		float len = abs(vec.y);
+		vec /= len;
+
+		float div = 1000000;
+
+		// a^2 - b^2 = S * div/score
+		// b = sqrt(a^2 - S * div/score)
+
+		Point2f pt = seg.a;
+		int i = 1;
+
+		while(pt.y > seg.b.y)
+		{
+			curve.push_back(pt);
+			float ydif = seg.a.y - sqrt(seg.a.y * seg.a.y - i * div / seg.score);
+			pt = seg.a + vec * ydif;
+			i++;
+		}
+
+		curve.push_back(seg.b);
+
+	}
+
+
+	for (Point2f p : curve)
+	{
+		line(debugBird, p + c1, p + c2, CvScalar(200, 0, 0), 2);
+		line(debugBird, p + c3, p + c4, CvScalar(200, 0, 0), 2);
 	}
 
 
 	if (curve.size() > 3)
 	{
-		if (curve[3].y < 350) return 0;
 		std::vector<Point2f> newCurve;
 		fitPointsYX(curve, newCurve, start);
 		curve = newCurve;
 	}
 
-*/
 
 #ifdef DEBUG_CD
 	imshow(name.c_str(), debugBird);
