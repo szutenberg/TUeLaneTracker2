@@ -21,7 +21,6 @@ Mat translateImg(Mat &img, int offsetx, int offsety){
     return img;
 }
 
-
 const float BIRD_SCALE = 1;
 const int BIRD_WIDTH = 350 * BIRD_SCALE;
 const int BIRD_HEIGHT = 700 * BIRD_SCALE;
@@ -29,266 +28,20 @@ const int BIRD_HEIGHT = 700 * BIRD_SCALE;
 
 CustomLineSegmentDetector lsd(BIRD_WIDTH, BIRD_HEIGHT);
 
-int debugCt = 1;
-void TrackingLaneDAG_generic::trackCurves(cv::UMat& FrameRGB)
+
+void TrackingLaneDAG_generic::trackCurves(cv::Mat& map, int withFiltering)
 {
-	cv::Mat mask;
-	cv::Mat filtered;
-	cv::Mat out;
-
-	cv::Mat hsv;
-	cv::Mat tmp;
-
-    cvtColor(FrameRGB, hsv, COLOR_BGR2HSV);
-	//const size_t CH_HUE = 0;
-    //const size_t CH_SATURATION = 1;
-    const size_t CH_VALUE = 2;
-    const size_t BUFFER_SIZE = 5;
-
-    Mat channels[3];
-    Mat imgForLaneDetection;
-
-    split(hsv, channels);
-
-	cv::GaussianBlur(channels[CH_VALUE], imgForLaneDetection, cv::Size(7, 7), 1, 10);
-	cv::addWeighted(channels[CH_VALUE], 11, imgForLaneDetection, -10.5, 0, imgForLaneDetection);
-	cv::GaussianBlur(imgForLaneDetection, imgForLaneDetection, cv::Size(3, 3), 0.5, 0.5);
-
-	multiply(imgForLaneDetection, imgForLaneDetection, imgForLaneDetection, 1.0/255);
-
-
 #ifdef DEBUG_FILTERS
-    if (debugX == 0) imshow("imgForLaneDetection", imgForLaneDetection);
+    if (debugX == 0) imshow("map", map);
 #endif // DEBUG_FILTERS
 
-	cv::Rect lROI;
-	lROI = cv::Rect(0, mCAMERA.RES_VH(0) - mSPAN, mCAMERA.RES_VH(1), mSPAN);
-	imgForLaneDetection(lROI).copyTo(mFrameGRAY_ROI);
-	mFrameGRAY_ROI /= BUFFER_SIZE;
-	if (!buffer[0].cols)
-	{
-		for (size_t i = 0; i < BUFFER_SIZE; i++)
-			mFrameGRAY_ROI.copyTo(buffer[i]);
-		bufferIt = 0;
-	}
-	mFrameGRAY_ROI.copyTo(tmp);
-
-	for (size_t i = 0; i < BUFFER_SIZE; i++)
-		add(buffer[i], tmp, tmp);
-	mFrameGRAY_ROI.copyTo(buffer[bufferIt]);
-
-	bufferIt = (bufferIt + 1) % BUFFER_SIZE;
-
-	CurveDetector2 lcd, rcd;
-
-	cv::Point r1, r2, l1, l2;
-
-	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
-	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameRGB.rows + tmp.rows;
-
-	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
-	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameRGB.rows + tmp.rows;
-
-	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
-	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameRGB.rows + tmp.rows;
-
-	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
-	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - FrameRGB.rows + tmp.rows;
-
-	mPtrLaneModel->curveRight.clear();
-	mPtrLaneModel->curveLeft.clear();
-	GaussianBlur( tmp, tmp, cv::Size( 5, 5 ), 2, 2, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED  );
-
-	rcd.detectLane(tmp, r1, r2, mPtrLaneModel->curveRight);
-	lcd.detectLane(tmp, l1, l2, mPtrLaneModel->curveLeft);
-
-	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
-
-	cv::Point c1(-3, 0);
-	cv::Point c2(3, 0);
-	cv::Point c3(0, 3);
-	cv::Point c4(0, -3);
-
-	if ((mPtrLaneModel->curveRight.size() == 2) && (mPtrLaneModel->curveLeft.size() == 2))
-	{
-		BirdView bird;
-		Mat input;
-		Mat birdRaw;
-		Mat birdHighPass;
-		Mat tmp, tmp2;
-		Mat birdWithoutCars;
-
-		bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
-
-		channels[CH_VALUE](lROI).copyTo(input);
-
-		birdRaw = bird.applyTransformation(input);
-
-		GaussianBlur(birdRaw, birdHighPass, cv::Size(7, 7), 1, 10);
-		addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
-		GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
-	    GaussianBlur(birdHighPass, tmp, cv::Size(3,3), 1, 1);
-
-	    tmp.copyTo(tmp2);
-	    translateImg(tmp2,-3, 0);
-	    translateImg(tmp,3, 0);
-
-	    absdiff(tmp, tmp2, tmp);
-
-	    tmp *= 4;
-	    tmp = 255 - tmp;
-
-	    multiply(tmp, birdHighPass, birdWithoutCars, 1.0/255);
-	    multiply(birdRaw, birdWithoutCars, birdWithoutCars, 1.0/255*2.0);
-
-	    GaussianBlur(birdWithoutCars, birdWithoutCars, cv::Size(3,3), 0.5, 0.5);
-
+    cv::Mat highPass;
+	GaussianBlur(map, highPass, cv::Size(5, 5), 1, 1);
+	addWeighted(map, 10.5, highPass, -11, 0, highPass);
+	//multiply(map, highPass, map, 1/255.0);
 #ifdef DEBUG_FILTERS
-	    if (debugX == 0) imshow("birdRaw", birdRaw);
-	    if (debugX == 0) imshow("birdHighPass", birdHighPass);
-	    if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
+    if (debugX == 0) imshow("highPass", highPass);
 #endif // DEBUG_FILTERS
-
-		CurveDetector3 leftDet, rightDet;
-		leftDet.name = "Left";
-		rightDet.name = "Right";
-		try
-		{
-			lsd.run(birdWithoutCars);
-		}
-		catch(const char* msg)
-		{
-			cerr << "LSD exception: " << msg << "\n";
-		}
-
-		rightDet.seg = &lsd.seg;
-		leftDet.seg = &lsd.seg;
-
-
-		Point p(200 * BIRD_SCALE - 1, BIRD_HEIGHT - 1);
-		laneR.clear();
-		int scR = rightDet.detectCurve(birdWithoutCars, p, laneR);
-
-		p = Point(150 * BIRD_SCALE - 1 , BIRD_HEIGHT - 1);
-		laneL.clear();
-		int scL = leftDet.detectCurve(birdWithoutCars, p, laneL);
-
-		// cout << scL << "\t\t" << scR << "\n";
-
-		bird.invertPoints(laneR, laneRxy);
-		bird.invertPoints(laneL, laneLxy);
-	}
-
-
-
-	///////// DEBUG WINDOW //////////////////////////////////////
-
-	if (debugX == 0)
-	{
-		cv::Mat FrameDbg;
-		cv::cvtColor(tmp, FrameDbg, cv::COLOR_GRAY2BGR);
-
-
-
-		for (vector<cv::Point> v : rcd.debugCurves)
-		{
-			for (size_t i = 1; i < v.size(); i++)
-			{
-				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
-			}
-		}
-
-		for (vector<cv::Point> v : lcd.debugCurves)
-		{
-			for (size_t i = 1; i < v.size(); i++)
-			{
-				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
-			}
-		}
-
-		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
-		{
-			line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
-		}
-
-		for(int i = 1; i < (int)mPtrLaneModel->curveLeft.size(); i++)
-		{
-			line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
-		}
-
-		for (Point pt : mPtrLaneModel->curveRight)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-		for (Point pt : mPtrLaneModel->curveLeft)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-		for (Point pt : laneLxy)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-		for (Point pt : laneRxy)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-
-		imshow("debug", FrameDbg);
-	}
-
-
-	for (Point2f p: laneRxy)
-	{
-		int ymin = mPtrLaneModel->curveRight[1].y;
-		if (p.y < ymin) mPtrLaneModel->curveRight.push_back(p);
-	}
-
-	for (Point2f p: laneLxy)
-	{
-		int ymin = mPtrLaneModel->curveLeft[1].y;
-		if (p.y < ymin) mPtrLaneModel->curveLeft.push_back(p);
-	}
-
-	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
-	{
-		mPtrLaneModel->curveRight[i].y += FrameRGB.rows - tmp.rows;
-	}
-
-	for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
-	{
-		mPtrLaneModel->curveLeft[i].y += FrameRGB.rows - tmp.rows;
-	}
-}
-
-
-
-
-
-
-
-
-
-void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
-{
-	cv::Mat map;
-
-	probMap.copyTo(map);
-	map.convertTo(map, CV_8U, 0.5);
-
-
-#ifdef DEBUG_FILTERS
-    if (debugX == 0) imshow("imgForLaneDetection", map);
-#endif // DEBUG_FILTERS
-
-	CurveDetector2 lcd, rcd;
 
 	cv::Point r1, r2, l1, l2;
 
@@ -304,13 +57,6 @@ void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
 	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
 	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
 
-
-	mPtrLaneModel->curveRight.clear();
-	mPtrLaneModel->curveLeft.clear();
-
-	rcd.detectLane(map, r1, r2, mPtrLaneModel->curveRight);
-	lcd.detectLane(map, l1, l2, mPtrLaneModel->curveLeft);
-
 	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
 
 	cv::Point c1(-3, 0);
@@ -318,58 +64,87 @@ void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
 	cv::Point c3(0, 3);
 	cv::Point c4(0, -3);
 
-	if ((mPtrLaneModel->curveRight.size() == 2) && (mPtrLaneModel->curveLeft.size() == 2))
+
+	BirdView bird;
+	Mat input;
+	Mat birdRaw;
+	Mat filtered;
+
+	bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
+
+	map.copyTo(input);
+
+	birdRaw = bird.applyTransformation(input);
+
+	if (withFiltering)
 	{
-		BirdView bird;
-		Mat input;
-		Mat birdRaw;
+		Mat birdHighPass;
+		Mat birdWithoutCars;
+		Mat tmp, tmp2;
+		GaussianBlur(birdRaw, birdHighPass, cv::Size(7, 7), 1, 10);
+		addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
+		GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
+		GaussianBlur(birdHighPass, tmp, cv::Size(3,3), 1, 1);
 
-		bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
+		tmp.copyTo(tmp2);
+		translateImg(tmp2,-3, 0);
+		translateImg(tmp,3, 0);
 
-		map.copyTo(input);
+		absdiff(tmp, tmp2, tmp);
 
-		birdRaw = bird.applyTransformation(input);
+		tmp *= 4;
+		tmp = 255 - tmp;
 
-		// border - to avoid seg fault when calculating score
-		cv::Mat mask = cv::Mat::zeros(birdRaw.rows, birdRaw.cols, CV_8U);
-		mask(Rect(2, 2, birdRaw.cols - 4, birdRaw.rows - 4)) = 255;
-		bitwise_and(birdRaw, mask, birdRaw);
+		multiply(tmp, birdHighPass, birdWithoutCars, 1.0/255);
+		multiply(birdRaw, birdWithoutCars, birdWithoutCars, 1.0/255*2.0);
+
+		GaussianBlur(birdWithoutCars, birdWithoutCars, cv::Size(3,3), 0.5, 0.5);
+		birdWithoutCars.copyTo(filtered);
 
 #ifdef DEBUG_FILTERS
-	    if (debugX == 0) imshow("birdRaw", birdRaw);
+if (debugX == 0) imshow("birdHighPass", birdHighPass);
+if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 #endif // DEBUG_FILTERS
 
-		CurveDetector3 leftDet, rightDet;
-		leftDet.name = "Left";
-		rightDet.name = "Right";
-		try
-		{
-			lsd.run(birdRaw);
-		}
-		catch(const char* msg)
-		{
-			cerr << "LSD exception: " << msg << "\n";
-		}
-
-		rightDet.seg = &lsd.seg;
-		leftDet.seg = &lsd.seg;
-
-
-		Point p(200 * BIRD_SCALE - 1, BIRD_HEIGHT - 1);
-		laneR.clear();
-		int scR = rightDet.detectCurve(birdRaw, p, laneR);
-
-		p = Point(150 * BIRD_SCALE - 1 , BIRD_HEIGHT - 1);
-		laneL.clear();
-		int scL = leftDet.detectCurve(birdRaw, p, laneL);
-
-		// cout << scL << "\t\t" << scR << "\n";
-
-		bird.invertPoints(laneR, laneRxy);
-		bird.invertPoints(laneL, laneLxy);
+	}
+	else
+	{
+		map.copyTo(filtered);
 	}
 
+	// border - to avoid seg fault when calculating score
+	cv::Mat mask = cv::Mat::zeros(filtered.rows, filtered.cols, CV_8U);
+	mask(Rect(2, 2, filtered.cols - 4, filtered.rows - 4)) = 255;
+	bitwise_and(filtered, mask, filtered);
 
+#ifdef DEBUG_FILTERS
+	if (debugX == 0) imshow("birdRaw", birdRaw);
+#endif // DEBUG_FILTERS
+
+	CurveDetector3 leftDet, rightDet;
+	leftDet.name = "Left";
+	rightDet.name = "Right";
+	try
+	{
+		lsd.run(filtered);
+	}
+	catch(const char* msg)
+	{
+		cerr << "LSD exception: " << msg << "\n";
+	}
+
+	rightDet.seg = &lsd.seg;
+	leftDet.seg = &lsd.seg;
+
+
+	Point p(200 * BIRD_SCALE - 1, BIRD_HEIGHT - 1);
+	rightDet.detectCurve(birdRaw, p, laneR);
+
+	p = Point(150 * BIRD_SCALE - 1 , BIRD_HEIGHT - 1);
+	leftDet.detectCurve(birdRaw, p, laneL);
+
+	bird.invertPoints(laneR, mPtrLaneModel->curveR);
+	bird.invertPoints(laneL, mPtrLaneModel->curveL);
 
 	///////// DEBUG WINDOW //////////////////////////////////////
 
@@ -378,80 +153,39 @@ void TrackingLaneDAG_generic::trackCurvesProb(cv::Mat& probMap)
 		cv::Mat FrameDbg;
 		cv::cvtColor(map, FrameDbg, cv::COLOR_GRAY2BGR);
 
-
-
-		for (vector<cv::Point> v : rcd.debugCurves)
+		for(int i = 1; i < (int)mPtrLaneModel->curveR.size(); i++)
 		{
-			for (size_t i = 1; i < v.size(); i++)
-			{
-				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
-			}
+			line(FrameDbg, mPtrLaneModel->curveR[i-1], mPtrLaneModel->curveR[i], CvScalar(255, 0, 0), 2);
 		}
 
-		for (vector<cv::Point> v : lcd.debugCurves)
+		for(int i = 1; i < (int)mPtrLaneModel->curveL.size(); i++)
 		{
-			for (size_t i = 1; i < v.size(); i++)
-			{
-				line(FrameDbg, v[i-1], v[i],  CvScalar(128, 0, 0), 2);
-			}
+			line(FrameDbg, mPtrLaneModel->curveL[i-1], mPtrLaneModel->curveL[i], CvScalar(255, 0, 0), 2);
 		}
 
-		for(int i = 1; i < (int)mPtrLaneModel->curveRight.size(); i++)
-		{
-			line(FrameDbg, mPtrLaneModel->curveRight[i-1], mPtrLaneModel->curveRight[i], CvScalar(255, 0, 0), 2);
-		}
-
-		for(int i = 1; i < (int)mPtrLaneModel->curveLeft.size(); i++)
-		{
-			line(FrameDbg, mPtrLaneModel->curveLeft[i-1], mPtrLaneModel->curveLeft[i], CvScalar(255, 0, 0), 2);
-		}
-
-		for (Point pt : mPtrLaneModel->curveRight)
+		for (Point pt : mPtrLaneModel->curveR)
 		{
 			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
 			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
 		}
 
-		for (Point pt : mPtrLaneModel->curveLeft)
+		for (Point pt : mPtrLaneModel->curveL)
 		{
 			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
 			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
 		}
-
-		for (Point pt : laneLxy)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
-		for (Point pt : laneRxy)
-		{
-			line(FrameDbg, pt + c1, pt + c2, CvScalar(0, 0, 200), 2);
-			line(FrameDbg, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
-		}
-
 
 		imshow("debug", FrameDbg);
 	}
 
 
-	for (Point2f p: laneRxy)
+	for (size_t i = 0; i < mPtrLaneModel->curveR.size(); i++)
 	{
-		mPtrLaneModel->curveRight.push_back(p);
+		mPtrLaneModel->curveR[i].y += this->mCAMERA.RES_VH[0] - map.rows;
 	}
 
-	for (Point2f p: laneLxy)
+	for (size_t i = 0; i < mPtrLaneModel->curveL.size(); i++)
 	{
-		mPtrLaneModel->curveLeft.push_back(p);
-	}
-
-	for (size_t i = 0; i < mPtrLaneModel->curveRight.size(); i++)
-	{
-		mPtrLaneModel->curveRight[i].y += 720 - map.rows;
-	}
-
-	for (size_t i = 0; i < mPtrLaneModel->curveLeft.size(); i++)
-	{
-		mPtrLaneModel->curveLeft[i].y += 720 - map.rows;
+		mPtrLaneModel->curveL[i].y += this->mCAMERA.RES_VH[0] - map.rows;
 	}
 }

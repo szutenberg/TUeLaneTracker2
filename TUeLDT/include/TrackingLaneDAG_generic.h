@@ -108,8 +108,7 @@ public:
 	TrackingLaneDAG_generic(BufferingDAG_generic&& bufferingGraph);
 	int  init_DAG(LaneFilter* laneFilter, VanishingPtFilter* vpFilter);
 	void execute(cv::UMat& FrameGRAY);
-	void trackCurves(cv::UMat& FrameRGB);
-	void trackCurvesProb(cv::Mat& probMap);
+	void trackCurves(cv::Mat& map, int withFiltering);
 
 };
 

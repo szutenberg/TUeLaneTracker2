@@ -99,6 +99,7 @@ protected:
 
 	//ROI Frame
 	cv::Mat				mFrameGRAY_ROI;
+	cv::Mat				mFrameGRAY_ROIRaw;
 	
 	//Binary Mask 
 	cv::Mat 			mMask;

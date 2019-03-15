@@ -52,7 +52,7 @@ Benchmark::~Benchmark() {
 	// TODO Auto-generated destructor stub
 }
 
-vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point>& in, int ymin)
+vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point2f>& in, int ymin)
 {
 	//ymin = 470; // we focus only on points until purview line
 	int i = in.size() - 1;
@@ -119,8 +119,8 @@ int Benchmark::run()
 
 	    	display = mPtrFrameFeeder->dequeueDisplay();
 
-	    	mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveLeft, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-	    	mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveRight, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    	mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    	mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
 	    	if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
 	    }
 
@@ -129,8 +129,8 @@ int Benchmark::run()
 
     	display = mPtrFrameFeeder->dequeueDisplay();
 
-	    mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveLeft, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-	    mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveRight, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
 
 	    if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
 	    if (debugX == 0) cvWaitKey(100000);

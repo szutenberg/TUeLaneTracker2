@@ -720,8 +720,11 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 #endif
 
 
-//trackCurves(FrameRGB);
-trackCurvesProb(mProbMapNoTangent);
+trackCurves(mFrameGRAY_ROIRaw, 1);
+
+//mProbMapNoTangent.convertTo(mProbMapNoTangent, CV_8U, 0.5);
+//trackCurves(mProbMapNoTangent, 1);
+
 
 #ifdef PROFILER_ENABLED
 mProfiler.start("BUFFER_SHIFT_WAIT");

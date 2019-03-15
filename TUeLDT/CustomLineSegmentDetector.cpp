@@ -16,10 +16,10 @@ CustomLineSegmentDetector::CustomLineSegmentDetector(int width, int height):
 	mSize(width * height),
 	mImgI(NULL),
 	mImgD(NULL),
-	quant(5),
+	quant(2),
 	angTh(22.5),
-	logEps(-100),
-	densityTh(0.4),
+	logEps(0),
+	densityTh(0.7),
 	nBins(1024)
 {
 	mImgI = new int[mSize];

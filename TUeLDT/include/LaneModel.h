@@ -55,8 +55,8 @@ public:
 	vector<float> 	boundaryLeft_cm;	/*< Selected,max-poseterior, distance to left boundary at base in Image-Center-CS [pixel] */
 	vector<float> 	boundaryRight_cm;  	/*< Selected,max-posterior, distance to left boundary at base in Image-Center-CS [pixel]  */
 
-	vector<cv::Point>   curveLeft;
-	vector<cv::Point>	curveRight;
+	vector<cv::Point2f> curveL;
+	vector<cv::Point2f>	curveR;
 
 	vector<cv::Point> benchL;
 	vector<cv::Point> benchR;

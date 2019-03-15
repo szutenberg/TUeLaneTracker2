@@ -29,7 +29,7 @@ public:
 	virtual ~Benchmark();
 	const LaneTracker::Config& 		mConfig;
 	int run();
-	vector<cv::Point> generateHSamplesPoints(vector<cv::Point>& in, int ymin);
+	vector<cv::Point> generateHSamplesPoints(vector<cv::Point2f>& in, int ymin);
 
 
 //private:

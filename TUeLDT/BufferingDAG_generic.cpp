@@ -123,6 +123,7 @@ mProfiler.start("EXTRACT_ROI");
 	 //Define ROI from the Input Image
 	 lROI = cv::Rect(0, lRowIndex, mCAMERA.RES_VH(1), mSPAN);
 	 FrameGRAY(lROI).copyTo(mFrameGRAY_ROI);
+	 mFrameGRAY_ROI.copyTo(mFrameGRAY_ROIRaw);
 
 
 #ifdef PROFILER_ENABLED
