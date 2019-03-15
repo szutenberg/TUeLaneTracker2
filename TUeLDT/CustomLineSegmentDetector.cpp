@@ -69,17 +69,20 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 
 		cv::Point2f vec = p2 - p1;
 		float angle = atan(vec.x / vec.y) * 180.0 / 3.14;
-
+		float width = res[i*7 + 4];
+		float p  = res[i*7 + 5];
 		tmp.a = p1;
 		tmp.b = p2;
 		tmp.angle = angle;
 		tmp.score = score;
 		tmp.NFA = NFA;
+		tmp.width = width;
+		tmp.p = p;
 		seg.push_back(tmp);
 	}
 
 	maxScore /= 100.0;
-	for (int i = 0; i < *n_out; i++)
+	for (size_t i = 0; i < seg.size(); i++)
 	{
 		seg[i].score /= maxScore;
 	}

@@ -28,7 +28,9 @@ std::ostream& operator<<(std::ostream& os, const LineSegment& d)
 {
 	cv::Point2f vec = d.a - d.b;
 	int len = sqrt(vec.x * vec.x + vec.y * vec.y);
-    os << d.a << "\t" << d.b << "\t" << (int)d.score << "\t" << d.NFA << "\t" << len << "\n";
+	cv::Point a = d.a;
+	cv::Point b = d.b;
+    os << a << "\t" << b << "\t" << (int)d.score << "\t" << d.NFA << "\t" << d.p << "\t" << d.width << "\t" << len << "\n";
     return os;
 }
 

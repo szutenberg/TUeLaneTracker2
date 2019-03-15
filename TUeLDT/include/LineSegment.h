@@ -18,6 +18,8 @@ typedef struct {
    float score;
    float angle;
    float NFA; // just for debug purposes
+   float p;
+   float width;
 } LineSegment;
 
 
