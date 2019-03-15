@@ -50,9 +50,9 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 					quant, angTh, logEps, densityTh, nBins,
 					NULL, NULL, NULL // we don't want to get pixel mapping
 				);
-	double maxScore = 0;
+	float maxScore = 0;
 
-	seg.clear();
+	std::vector<LineSegment> segTmp;
 
 	for (int i = 0; i < *n_out; i++)
 	{
@@ -61,10 +61,7 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		cv::Point2f p2(res[i*7+2], res[i*7+3]);
 		int NFA = res[i*7+6];
 		if (p1.y < p2.y) swap(p1, p2);
-		cv::Point2f shift;
-		int score = calcScore(p1, p2, shift);
-		p1 += shift;
-		p2 += shift;
+		int score = calcScoreQuick(p1, p2);
 		if (score > maxScore) maxScore = score;
 
 		cv::Point2f vec = p2 - p1;
@@ -163,6 +160,89 @@ int CustomLineSegmentDetector::calcScore(cv::Point2f a, cv::Point2f b, cv::Point
 	shift.y = dirx * (maxBin + SHIFT_FROM);
 	return bins[maxBin] / counter;
 }
+
+
+float CustomLineSegmentDetector::calcScoreQuick(cv::Point2f a, cv::Point2f b)
+{
+	if (a == b) return 0;
+	int dirx = 0;
+	int diry = 0;
+
+	float slope = (float)(b.y - a.y) / (b.x - a.x);
+
+	if (abs(slope) < 1)
+	{
+		dirx = 1;
+		if (a.x > b.x)
+		{
+			swap(a, b);
+		}
+	}
+	else
+	{
+		diry = 1;
+		if (a.y > b.y)
+		{
+			swap(a, b);
+		}
+		slope = 1 / slope;
+	}
+
+	float from = dirx * a.x + diry * a.y;
+	float to   = dirx * b.x + diry * b.y;
+
+	float p;
+	int fromI;
+	int toI;
+
+	float res = 0;
+	int counter = 0;
+
+	fromI = from + 1;
+	toI = fromI + 2;
+	p = diry * a.x + dirx * a.y;
+	p -= (from - fromI) * slope;
+
+	toI = fromI + 2;
+
+	for (int i = fromI; i <= toI; i++, p+=slope, counter++)
+	{
+		int j = 0.5 + p;
+		int px = dirx * i + diry * j;
+		int py = dirx * j + diry * i;
+		res += mImgI[px + py * mWidth];
+	}
+
+	p = diry * b.x + dirx * b.y;
+	fromI = to - 3;
+	toI = to - 1;
+	p -= (to - fromI) * slope;
+
+	for (int i = fromI; i <= toI; i++, p+=slope, counter++)
+	{
+		int j = 0.5 + p;
+		int px = dirx * i + diry * j;
+		int py = dirx * j + diry * i;
+		res += mImgI[px + py * mWidth];
+	}
+
+	p = diry * a.x + dirx * a.y;
+
+	fromI = from + (to - from)/2 - 1;
+	toI = from + (to - from)/2 + 1;
+	p -= (from - fromI) * slope;
+
+	for (int i = fromI; i <= toI; i++, p+=slope, counter++)
+	{
+		int j = 0.5 + p;
+		int px = dirx * i + diry * j;
+		int py = dirx * j + diry * i;
+		res += mImgI[px + py * mWidth];
+	}
+
+	return (float)res / counter;
+}
+
 
 
 CustomLineSegmentDetector::~CustomLineSegmentDetector() {
