@@ -98,6 +98,8 @@ if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 	else
 	{
 		birdRaw.copyTo(filtered);
+		GaussianBlur(filtered, filtered, cv::Size(3,3), 1, 1);
+
 	}
 
 	// border - to avoid seg fault when calculating score

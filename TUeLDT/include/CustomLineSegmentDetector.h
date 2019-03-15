@@ -20,7 +20,7 @@ public:
 	bool run(cv::Mat img);
 	virtual ~CustomLineSegmentDetector();
 	int calcScore(cv::Point2f a, cv::Point2f b, cv::Point2f& shift);
-	float calcScoreQuick(cv::Point2f a, cv::Point2f b);
+	float calcScoreQuick(cv::Point2f a, cv::Point2f b, int returnAvg);
 
 	double* mImgD;
 	int* mImgI;

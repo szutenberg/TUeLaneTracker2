@@ -32,7 +32,7 @@ void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Poin
 		float xc = yc * yc * coeff[2] + yc * coeff[1] + coeff[0] + zero.x;
 		curve.push_back(Point2f(xc, y));
 	}
-	printf("%lf\t%lf\t%lf\n", coeff[2], coeff[1], coeff[0]);
+	//printf("%lf\t%lf\t%lf\n", coeff[2], coeff[1], coeff[0]);
 
 }
 
@@ -56,7 +56,7 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 
 		Point2f dst = s.a - Point2f(start);
 		float dif = sqrt(dst.x * dst.x + dst.y * dst.y);
-		if (dif < 50) dif = 50;
+		if (dif < 10) dif = 10;
 		float d = s.score * s.score / dif;
 
 		if (maxD < d)
@@ -111,6 +111,7 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 			angleDirNext = (atan(vecD.x / vecD.y) - atan(lastVec.x / lastVec.y)) * RAD_TO_DEG;
 			if (abs(angleDirNext) > 7) continue;
 
+			if ((s.score - last.score) < -30) continue;
 			float squaredDist = (vecD.x * vecD.x + vecD.y * vecD.y);
 			if (squaredDist < 50*50) squaredDist = 50*50;
 
@@ -126,8 +127,8 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 
 
 
-	for (LineSegment seg : detSeg)
-	{
+	for (LineSegment s : detSeg)
+	{/*
 		Point2f vec = seg.b - seg.a;
 		float len = abs(vec.y);
 		vec /= len;
@@ -146,9 +147,25 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 			float ydif = seg.a.y - sqrt(seg.a.y * seg.a.y - i * div / seg.score);
 			pt = seg.a + vec * ydif;
 			i++;
-		}
+		}*/
+		curve.push_back(s.a);
+		curve.push_back(s.b);
 
-		curve.push_back(seg.b);
+
+
+		for (LineSegment seg2 : *seg)
+		{
+			if (seg2 == s) continue;
+			if ((s.score - seg2.score) > 10) continue;
+			Point2f v = seg2.a - s.a;
+			float likehood = v.x * v.x + v.y * v.y;
+			float angdif = abs(s.angle - seg2.angle);
+			if (likehood > 26) continue;
+			if (angdif > 2) continue;
+			curve.push_back(seg2.a);
+			curve.push_back(seg2.b);
+			//cout << s << seg2 << "Likehood = " << likehood << " angle = " << angdif << "\n";
+		}
 	}
 
 
