@@ -29,33 +29,25 @@ const int BIRD_HEIGHT = 700 * BIRD_SCALE;
 CustomLineSegmentDetector lsd(BIRD_WIDTH, BIRD_HEIGHT);
 
 
-void TrackingLaneDAG_generic::trackCurves(cv::Mat& map, int withFiltering)
+void TrackingLaneDAG_generic::trackCurves(cv::Mat& input, int withFiltering)
 {
 #ifdef DEBUG_FILTERS
-    if (debugX == 0) imshow("map", map);
-#endif // DEBUG_FILTERS
-
-    cv::Mat highPass;
-	GaussianBlur(map, highPass, cv::Size(5, 5), 1, 1);
-	addWeighted(map, 10.5, highPass, -11, 0, highPass);
-	//multiply(map, highPass, map, 1/255.0);
-#ifdef DEBUG_FILTERS
-    if (debugX == 0) imshow("highPass", highPass);
+    if (debugX == 0) imshow("trackCurves - input", input);
 #endif // DEBUG_FILTERS
 
 	cv::Point r1, r2, l1, l2;
 
 	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
-	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + input.rows;
 
 	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
-	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + input.rows;
 
 	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
-	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + input.rows;
 
 	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
-	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + map.rows;
+	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - 720 + input.rows;
 
 	vector<Point2f> laneR, laneL, laneRxy, laneLxy;
 
@@ -64,15 +56,11 @@ void TrackingLaneDAG_generic::trackCurves(cv::Mat& map, int withFiltering)
 	cv::Point c3(0, 3);
 	cv::Point c4(0, -3);
 
-
 	BirdView bird;
-	Mat input;
 	Mat birdRaw;
 	Mat filtered;
 
 	bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
-
-	map.copyTo(input);
 
 	birdRaw = bird.applyTransformation(input);
 
@@ -109,7 +97,7 @@ if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 	}
 	else
 	{
-		map.copyTo(filtered);
+		birdRaw.copyTo(filtered);
 	}
 
 	// border - to avoid seg fault when calculating score
@@ -151,7 +139,7 @@ if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 	if (debugX == 0)
 	{
 		cv::Mat FrameDbg;
-		cv::cvtColor(map, FrameDbg, cv::COLOR_GRAY2BGR);
+		cv::cvtColor(input, FrameDbg, cv::COLOR_GRAY2BGR);
 
 		for(int i = 1; i < (int)mPtrLaneModel->curveR.size(); i++)
 		{
@@ -178,14 +166,13 @@ if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 		imshow("debug", FrameDbg);
 	}
 
-
 	for (size_t i = 0; i < mPtrLaneModel->curveR.size(); i++)
 	{
-		mPtrLaneModel->curveR[i].y += this->mCAMERA.RES_VH[0] - map.rows;
+		mPtrLaneModel->curveR[i].y += this->mCAMERA.RES_VH[0] - input.rows;
 	}
 
 	for (size_t i = 0; i < mPtrLaneModel->curveL.size(); i++)
 	{
-		mPtrLaneModel->curveL[i].y += this->mCAMERA.RES_VH[0] - map.rows;
+		mPtrLaneModel->curveL[i].y += this->mCAMERA.RES_VH[0] - input.rows;
 	}
 }
