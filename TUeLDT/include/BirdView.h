@@ -34,7 +34,7 @@ public:
 
 	Mat applyTransformation(Mat img);
 	bool invertPoints(std::vector<Point2f>& in, std::vector<Point2f> &out);
-
+	bool convertPointsToBird(std::vector<Point2f>& in, std::vector<Point2f> &out);
 	static double det(double a, double b, double c, double d);
 
 	static Point2f findCrossPoint(Point a1, Point a2, Point b1, Point b2);

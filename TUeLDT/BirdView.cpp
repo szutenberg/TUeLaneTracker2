@@ -65,7 +65,7 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 	Point2f cc = (vr + vl) / 2.0;
 
 	Point2f tmpV = crossPoint - cc;
-	tmpV *= 0.95;
+	tmpV *= 0.90;
 
 	float tmpH = sqrt(tmpV.x*tmpV.x + tmpV.y*tmpV.y);
 	//std::cout << "tmpH = " << tmpH << std::endl;
@@ -115,6 +115,13 @@ Mat BirdView::applyTransformation(Mat img)
 bool BirdView::invertPoints(std::vector<Point2f>& in, std::vector<Point2f> &out)
 {
 	perspectiveTransform(in, out, mLambdaInv);
+
+	return true;
+}
+
+bool BirdView::convertPointsToBird(std::vector<Point2f>& in, std::vector<Point2f> &out)
+{
+	perspectiveTransform(in, out, mLambda);
 
 	return true;
 }
