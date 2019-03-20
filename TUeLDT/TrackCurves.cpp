@@ -58,54 +58,20 @@ void TrackingLaneDAG_generic::trackCurves(cv::Mat& input, int withFiltering)
 
 	BirdView bird;
 	Mat birdRaw;
-	Mat filtered;
+	Mat blurred;
 
-	bird.configureTransform(l1, l2, r1, r2, 600, BIRD_WIDTH, BIRD_HEIGHT);
+
+	vector<Point2f> startPoints, startPointsBird;
+
+	bird.configureTransform(Point2f(180, 519), Point2f(180+210, 319), Point2f(1200, 519), Point2f(1200-210, 319), 600, BIRD_WIDTH, BIRD_HEIGHT);
 
 	birdRaw = bird.applyTransformation(input);
-
-	if (withFiltering)
-	{
-		Mat birdHighPass;
-		Mat birdWithoutCars;
-		Mat tmp, tmp2;
-		GaussianBlur(birdRaw, birdHighPass, cv::Size(7, 7), 1, 10);
-		addWeighted(birdRaw, 11, birdHighPass, -11, 0, birdHighPass);
-		GaussianBlur(birdHighPass, birdHighPass, cv::Size(3, 3), 0.5, 0.5);
-		GaussianBlur(birdHighPass, tmp, cv::Size(3,3), 1, 1);
-
-		tmp.copyTo(tmp2);
-		translateImg(tmp2,-3, 0);
-		translateImg(tmp,3, 0);
-
-		absdiff(tmp, tmp2, tmp);
-
-		tmp *= 4;
-		tmp = 255 - tmp;
-
-		multiply(tmp, birdHighPass, birdWithoutCars, 1.0/255);
-		multiply(birdRaw, birdWithoutCars, birdWithoutCars, 1.0/255*2.0);
-
-		GaussianBlur(birdWithoutCars, birdWithoutCars, cv::Size(3,3), 0.5, 0.5);
-		birdWithoutCars.copyTo(filtered);
-
-#ifdef DEBUG_FILTERS
-if (debugX == 0) imshow("birdHighPass", birdHighPass);
-if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
-#endif // DEBUG_FILTERS
-
-	}
-	else
-	{
-		birdRaw.copyTo(filtered);
-		GaussianBlur(filtered, filtered, cv::Size(3,3), 1, 1);
-
-	}
+	GaussianBlur(birdRaw, blurred, cv::Size(3,3), 1, 1);
 
 	// border - to avoid seg fault when calculating score
-	cv::Mat mask = cv::Mat::zeros(filtered.rows, filtered.cols, CV_8U);
-	mask(Rect(2, 2, filtered.cols - 4, filtered.rows - 4)) = 255;
-	bitwise_and(filtered, mask, filtered);
+	cv::Mat mask = cv::Mat::zeros(blurred.rows, blurred.cols, CV_8U);
+	mask(Rect(2, 2, blurred.cols - 4, blurred.rows - 4)) = 255;
+	bitwise_and(blurred, mask, blurred);
 
 #ifdef DEBUG_FILTERS
 	if (debugX == 0) imshow("birdRaw", birdRaw);
@@ -116,7 +82,7 @@ if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 	rightDet.name = "Right";
 	try
 	{
-		lsd.run(filtered);
+		lsd.run(blurred);
 	}
 	catch(const char* msg)
 	{
@@ -127,11 +93,17 @@ if (debugX == 0) imshow("birdWithoutCars", birdWithoutCars);
 	leftDet.seg = &lsd.seg;
 
 
-	Point p(200 * BIRD_SCALE - 1, BIRD_HEIGHT - 1);
-	rightDet.detectCurve(birdRaw, p, laneR);
+	startPoints.push_back(r1);
+	startPoints.push_back(r2);
+	startPoints.push_back(l1);
+	startPoints.push_back(l2);
 
-	p = Point(150 * BIRD_SCALE - 1 , BIRD_HEIGHT - 1);
-	leftDet.detectCurve(birdRaw, p, laneL);
+	bird.convertPointsToBird(startPoints, startPointsBird);
+
+
+
+	rightDet.detectCurve2(blurred, startPointsBird[0], startPointsBird[1], laneR);
+	leftDet.detectCurve2(blurred, startPointsBird[2], startPointsBird[3], laneL);
 
 	bird.invertPoints(laneR, mPtrLaneModel->curveR);
 	bird.invertPoints(laneL, mPtrLaneModel->curveL);
