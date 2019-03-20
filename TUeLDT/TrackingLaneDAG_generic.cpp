@@ -720,7 +720,8 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 #endif
 
 
-trackCurves(mFrameGRAY_ROIRaw, 0);
+//trackCurves(mFrameGRAY_ROIRaw, 0);
+trackCurves2(mFrameGRAY_ROIRaw);
 
 //mProbMapNoTangent.convertTo(mProbMapNoTangent, CV_8U, 0.5);
 //trackCurves(mProbMapNoTangent, 1);
