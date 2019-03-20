@@ -14,6 +14,8 @@ class CurveDetector3
 
 public:
 	int detectCurve(const cv::Mat& img, Point start, std::vector<Point2f> &lane);
+	int detectCurve2(const cv::Mat& img, Point2f s1, Point2f s2, std::vector<Point2f> &curve);
+
 	std::string name;
 	std::vector<LineSegment>* seg;
 

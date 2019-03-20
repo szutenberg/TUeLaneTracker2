@@ -13,6 +13,39 @@ extern int debugX;
 
 #define DEBUG_CD
 
+std::vector<double> fit(std::vector<Point2f>& points, Point2f zero)
+{
+	std::vector<double> xv;
+	std::vector<double> yv;
+	std::vector<double> coeff;
+
+	for (Point2f p : points)
+	{
+		xv.push_back(zero.y - p.y );
+		yv.push_back(p.x - zero.x);
+	}
+	polyFit(xv, yv, coeff, 1);
+
+	return coeff;
+}
+
+float value(std::vector<double>& coeff, Point2f zero, float y)
+{
+	float yc = zero.y - y ;
+	float xc = yc * yc * coeff[2] + yc * coeff[1] + coeff[0] + zero.x;
+	return xc;
+}
+
+
+float angle(std::vector<double>& coeff, Point2f zero, float y)
+{
+	float yc = zero.y - y ;
+	float xc = 2.0 * yc * coeff[2] + coeff[1];
+
+	return atan(xc) * 180.0 / 3.14;
+}
+
+
 void fitPointsYX(std::vector<Point2f> &points, std::vector<Point2f> &curve, Point zero=Point(0,0))
 {
 	std::vector<double> xv;
@@ -43,6 +76,15 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
     img.copyTo(debugBird);
     cvtColor(debugBird, debugBird, COLOR_GRAY2BGR);
 #endif // DEBUG_CD
+/*
+    curve.push_back(start - Point(0, 500));
+    curve.push_back(start);
+    curve.push_back(Point(start.x, 1));
+*/
+
+
+
+
 
     float totalScore = 0;
 
@@ -72,7 +114,7 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 #ifdef DEBUG_CD
 	for (LineSegment s : *seg)
 	{
-		line(debugBird, s.a, s.b, CvScalar(0, s.score*2.5, 0), 2);
+		line(debugBird, s.a, s.b, CvScalar(0, s.score, 0), 2);
 	}
 	cv::Point2f c1(-3, 0);
 	cv::Point2f c2(3, 0);
@@ -191,3 +233,126 @@ int CurveDetector3::detectCurve(const cv::Mat& img, Point start, std::vector<Poi
 	return totalScore/100;
 }
 
+
+
+int CurveDetector3::detectCurve2(const cv::Mat& img, Point2f s1, Point2f s2, std::vector<Point2f> &curve)
+{
+#ifdef DEBUG_CD
+	Mat debugBird;
+    img.copyTo(debugBird);
+    cvtColor(debugBird, debugBird, COLOR_GRAY2BGR);
+#endif // DEBUG_CD
+/*
+    curve.push_back(start - Point(0, 500));
+    curve.push_back(start);
+    curve.push_back(Point(start.x, 1));
+*/
+    curve.clear();
+    float totalScore = 0;
+
+	float maxD = 0.1;
+
+	Point2f v = s2 - s1;
+	v /= 2.0;
+	for (int i = 0; i < 2; i++)
+	{
+		Point2f t = s1;
+		t += i * v;
+		curve.push_back(t);
+	}
+	curve.push_back(s2);
+
+
+#ifdef DEBUG_CD
+	for (LineSegment s : *seg)
+	{
+		line(debugBird, s.a, s.b, CvScalar(0, s.score, 0), 2);
+	}
+	cv::Point2f c1(-3, 0);
+	cv::Point2f c2(3, 0);
+	cv::Point2f c3(0, 3);
+	cv::Point2f c4(0, -3);
+#endif // DEBUG_CD
+
+	std::vector<Point2f> newCurve;
+	//fitPointsYX(curve, newCurve, s1);
+
+	for (Point2f p : newCurve)
+	{
+		line(debugBird, p + c1, p + c2, CvScalar(200, 0, 0), 2);
+		line(debugBird, p + c3, p + c4, CvScalar(200, 0, 0), 2);
+	}
+
+
+
+	LineSegment best = NOT_DETECTED;
+
+	float y = s1.y;
+
+	do
+	{
+		float maxScore = 1;
+
+		vector<double> coeff = fit(curve, s1);
+		best = NOT_DETECTED;
+		for (LineSegment s : *seg)
+		{
+			if (y < s.a.y) continue;
+
+			float angleDif = abs(s.angle - angle(coeff, s1, s.a.y));
+			float xDif = abs(s.a.x - value(coeff, s1, s.a.y));
+			float yDif = y - s.a.y;
+			if (yDif < 100) yDif = 101;
+
+
+			float angleCoeff = 1.0 - angleDif / (angleDif + 5);
+			float xCoeff = 1.0 - xDif / (xDif + 5);
+
+
+			float score = angleCoeff * xCoeff * xCoeff * sqrt(s.score) / (yDif - 100);
+
+
+			if (score > maxScore)
+			{
+				best = s;
+				maxScore = score;
+				cout << "Canidate" << name << score << "\t" << "\t" << s;
+			}
+		}
+
+		if (best != NOT_DETECTED)
+		{
+			cout << best;
+			Point2f v = best.b - best.a;
+			float len = sqrt(v.x * v.x + v.y * v.y);
+			float segments = (int)(len / 20);
+
+			curve.push_back(best.a);
+			v /= segments;
+			for (int i = 1; i < segments; i++)
+			{
+				curve.push_back(best.a + i * v);
+			}
+			y = best.b.y;
+			line(debugBird, best.a, best.b, CvScalar(0, 0, best.score*2.0), 2);
+		}
+
+
+	}while(best != NOT_DETECTED);
+
+
+
+
+#ifdef DEBUG_CD
+	if (debugX == 0) imshow(name.c_str(), debugBird);
+#endif  // DEBUG_CD
+
+
+	fitPointsYX(curve, newCurve, s1);
+	curve.clear();
+	curve = newCurve;
+
+
+
+	return 1;
+}

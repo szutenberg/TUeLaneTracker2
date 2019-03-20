@@ -61,7 +61,8 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 		cv::Point2f p2(res[i*7+2], res[i*7+3]);
 		int NFA = res[i*7+6];
 		if (p1.y < p2.y) swap(p1, p2);
-		int score = calcScoreQuick(p1, p2, 1);
+		cv::Point2f shift;
+		int score = calcScore(p1, p2, shift);
 		if (score > maxScore) maxScore = score;
 
 		cv::Point2f vec = p2 - p1;
@@ -82,6 +83,11 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 	for (size_t i = 0; i < seg.size(); i++)
 	{
 		seg[i].score /= maxScore;
+		if (seg[i].score < 50)
+		{
+			seg.erase(seg.begin() + i);
+			i--;
+		}
 	}
 
 	sort(seg.begin(), seg.end(), compareScores);
@@ -96,7 +102,7 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 
 		float segments = len * (100 + s.score) / 1000 * dProb;
 		int parts = segments;
-
+		parts = 1;
 		if (parts > 0)
 		{
 			v /= parts;
@@ -122,8 +128,8 @@ bool CustomLineSegmentDetector::run(cv::Mat img)
 	return true;
 }
 
-const int SHIFT_FROM = -2;
-const int SHIFT_TO = 2;
+const int SHIFT_FROM = 0;
+const int SHIFT_TO = 0;
 const int SHIFT_N = SHIFT_TO - SHIFT_FROM + 1;
 
 int CustomLineSegmentDetector::calcScore(cv::Point2f a, cv::Point2f b, cv::Point2f& shift)
@@ -167,7 +173,7 @@ int CustomLineSegmentDetector::calcScore(cv::Point2f a, cv::Point2f b, cv::Point
 	{
 		for(int bin = SHIFT_FROM; bin <= SHIFT_TO; bin++)
 		{
-			int j = 0.5 + p + bin;
+			int j = p + bin;
 			int px = dirx * i + diry * j;
 			int py = dirx * j + diry * i;
 			bins[bin - SHIFT_FROM] += mImgI[px + py * mWidth];
@@ -231,20 +237,17 @@ float CustomLineSegmentDetector::calcScoreQuick(cv::Point2f a, cv::Point2f b, in
 	float res = 0;
 	int counter = 0;
 
-	fromI = from + 1;
+	fromI = from;
 	toI = fromI + 2;
 	p = diry * a.x + dirx * a.y;
 	p -= (from - fromI) * slope;
-
-	toI = fromI + 2;
 
 	int minimum = 255;
 
 	for (int i = fromI; i <= toI; i++, p+=slope, counter++)
 	{
-		int j = 0.5 + p;
-		int px = dirx * i + diry * j;
-		int py = dirx * j + diry * i;
+		int px = dirx * i + diry * p;
+		int py = dirx * p + diry * i;
 		res += mImgI[px + py * mWidth];
 		minimum = min(mImgI[px + py * mWidth], minimum);
 	}
@@ -256,9 +259,8 @@ float CustomLineSegmentDetector::calcScoreQuick(cv::Point2f a, cv::Point2f b, in
 
 	for (int i = fromI; i <= toI; i++, p+=slope, counter++)
 	{
-		int j = 0.5 + p;
-		int px = dirx * i + diry * j;
-		int py = dirx * j + diry * i;
+		int px = dirx * i + diry * p;
+		int py = dirx * p + diry * i;
 		res += mImgI[px + py * mWidth];
 		minimum = min(mImgI[px + py * mWidth], minimum);
 	}
@@ -271,9 +273,8 @@ float CustomLineSegmentDetector::calcScoreQuick(cv::Point2f a, cv::Point2f b, in
 
 	for (int i = fromI; i <= toI; i++, p+=slope, counter++)
 	{
-		int j = 0.5 + p;
-		int px = dirx * i + diry * j;
-		int py = dirx * j + diry * i;
+		int px = dirx * i + diry * p;
+		int py = dirx * p + diry * i;
 		res += mImgI[px + py * mWidth];
 		minimum = min(mImgI[px + py * mWidth], minimum);
 
