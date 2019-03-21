@@ -18,10 +18,6 @@ const float BIRD_SCALE = 1.4 ;
 const int BIRD_WIDTH = 350 * BIRD_SCALE;
 const int BIRD_HEIGHT = 700 * BIRD_SCALE;
 
-const int BUF_SIZE = 8;
-int bufIt = 0;
-cv::Mat buf[BUF_SIZE];
-
 
 float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 {
@@ -66,7 +62,7 @@ float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 		ret += val;
 	}
 
-	return (float)ret / counter + 30;
+	return (float)ret / counter;
 }
 
 void drawPointsX(cv::Mat& img, vector<Point2f> points)
@@ -84,40 +80,11 @@ void drawPointsX(cv::Mat& img, vector<Point2f> points)
 }
 
 
-
-void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
+cv::Mat TrackingLaneDAG_generic::createProbabilityMap(cv::Mat input)
 {
-#ifdef DEBUG_BIRD
-    if (debugX == 0) imshow("trackCurves2 - input", input);
-#endif // DEBUG_BIRD
-
-	cv::Point r1, r2, l1, l2;
-
-	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
-	r1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - this->mCAMERA.RES_VH[0] + input.rows;
-
-	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
-	r2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - this->mCAMERA.RES_VH[0] + input.rows;
-
-	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
-	l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - this->mCAMERA.RES_VH[0] + input.rows;
-
-	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
-	l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - this->mCAMERA.RES_VH[0] + input.rows;
-
-	BirdView bird;
-	Mat birdRaw;
-	Mat filtered;
-
-	bird.configureTransform(Point2f(180, 519), Point2f(180+210, 319), Point2f(1200, 519), Point2f(1200-210, 319), 600, BIRD_WIDTH, BIRD_HEIGHT);
-	birdRaw = bird.applyTransformation(input);
-
-	if (debugX == 0) imshow("input", birdRaw);
-	GaussianBlur(birdRaw, birdRaw, cv::Size(5,5), 1, 1);
-	if (debugX == 0) imshow("inputBlur", birdRaw);
-
-	Sobel( birdRaw, mGradX, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
-	Sobel( birdRaw, mGradY, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
+	// TODO use different variables when making parallel
+	Sobel( input, mGradX, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
+	Sobel( input, mGradY, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
 
 	mMask = mGradX> 255;
 	mGradX.setTo(255, mMask);
@@ -146,7 +113,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	cv::divide(mGradY, mGradX, mBufferPool->GradientTangent[mBufferPos], 128, -1);
 
 	//GrayChannel Probabilities
-	subtract(birdRaw, mLaneMembership.TIPPING_POINT_GRAY, mTempProbMat, cv::noArray(), CV_32S);
+	subtract(input, mLaneMembership.TIPPING_POINT_GRAY, mTempProbMat, cv::noArray(), CV_32S);
 	mMask = mTempProbMat <0 ;
 	mTempProbMat.setTo(0,mMask);
 	mTempProbMat.copyTo(mProbMap_Gray);
@@ -154,21 +121,17 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 	divide(mProbMap_Gray, mTempProbMat, mProbMap_Gray, 255, -1);
 
-
 	//GradientMag Probabilities
 	subtract(mFrameGradMag, mLaneMembership.TIPPING_POINT_GRAD_Mag, mTempProbMat, cv::noArray(), CV_32S);
 	mTempProbMat.copyTo(mProbMap_GradMag);
 	mTempProbMat= abs(mTempProbMat) + 10;
 	divide(mProbMap_GradMag, mTempProbMat, mProbMap_GradMag, 255, -1);
 
-
 	// Intermediate Probability Map
 	mBufferPool->Probability[mBufferPos] = mProbMap_GradMag + mProbMap_Gray;
 	mMask = mBufferPool->Probability[mBufferPos] <0 ;
 	mBufferPool->Probability[mBufferPos].setTo(0,mMask);
 	mBufferPool->Probability[mBufferPos].copyTo(mProbMapNoTangent);
-
-
 
 	//Gradient Tangent Probability Map
 	//	subtract(mGradTanTemplatescore, mBufferPool->GradientTangent[mBufferPos], mTempProbMat, cv::noArray(), CV_32S);
@@ -187,34 +150,56 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	multiply(mBufferPool->Probability[mBufferPos], mProbMap_GradDir, mBufferPool->Probability[mBufferPos]);
 	mBufferPool->Probability[mBufferPos].convertTo(mBufferPool->Probability[mBufferPos], CV_8U, 1.0/255, 0);
 
+	return mBufferPool->Probability[mBufferPos];
+}
 
-	Mat prob;
-	mBufferPool->Probability[mBufferPos].copyTo(prob);
 
-	if (buf[0].rows == 0)
+
+void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
+{
+	cv::Point r1, r2, l1, l2;
+	BirdView bird;
+	Mat birdRaw;
+	Mat buffered;
+	Mat prob; // probability map
+
+#ifdef DEBUG_BIRD
+    if (debugX == 0) imshow("trackCurves2 - input", input);
+#endif // DEBUG_BIRD
+
+	r1.y = l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - this->mCAMERA.RES_VH[0] + input.rows;
+	r2.y = l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - this->mCAMERA.RES_VH[0] + input.rows;
+
+	r1.x = mPtrLaneModel->boundaryRight[0] + mLaneFilter->O_ICCS_ICS.x;
+	r2.x = mPtrLaneModel->boundaryRight[1] + mLaneFilter->O_ICCS_ICS.x;
+
+	l1.x = mPtrLaneModel->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
+	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
+
+
+	bird.configureTransform(Point2f(180, 519), Point2f(180+210, 319), Point2f(1200, 519), Point2f(1200-210, 319), 600, BIRD_WIDTH, BIRD_HEIGHT);
+	birdRaw = bird.applyTransformation(input);
+
+	if (debugX == 0) imshow("input", birdRaw);
+	GaussianBlur(birdRaw, birdRaw, cv::Size(5,5), 1, 1);
+	if (debugX == 0) imshow("inputBlur", birdRaw);
+
+	prob = createProbabilityMap(birdRaw);
+
+	if (mBuf[0].rows == 0)
 	{
-		for (int i = 0; i < BUF_SIZE; i++) prob.copyTo(buf[i]);
-		bufIt = 0;
+		for (int i = 0; i < mBUF_SIZE; i++) prob.copyTo(mBuf[i]);
+		mBufIt = 0;
 	}
+	prob.copyTo(mBuf[mBufIt]);
+	mBufIt = (mBufIt+1)%mBUF_SIZE;
 
-	prob.copyTo(buf[bufIt]);
-	bufIt = (bufIt+1)%BUF_SIZE;
+	buffered = Mat::zeros(prob.rows, prob.cols, CV_8U);
 
+	for (int i = 0; i < mBUF_SIZE; i++)
+		addWeighted(buffered, 1, mBuf[i], 1.0/mBUF_SIZE, 1, buffered);
 
-	prob.copyTo(filtered);
-	filtered *= 0;
-
-	for (int i = 0; i < BUF_SIZE; i++)
-		addWeighted(filtered, 1, buf[i], 1.0/BUF_SIZE, 1, filtered);
-
-	GaussianBlur(filtered, filtered, cv::Size(15,5), 0, 0);
-
-
-	Mat filteredDbg;
-
-	filtered.copyTo(filteredDbg);
-    cvtColor(filteredDbg, filteredDbg, COLOR_GRAY2BGR);
-
+	GaussianBlur(buffered, buffered, cv::Size(15,5), 0, 0);
 
 	vector<Point2f> startPoints, startPointsBird;
 	startPoints.push_back(r1);
@@ -225,52 +210,51 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	bird.convertPointsToBird(startPoints, startPointsBird);
 
 	vector<Point2f> cL, cR;
-	Point2f v;
 	cL.push_back(startPointsBird[2]);
 	cR.push_back(startPointsBird[0]);
 
-	int y = cL[0].y - 180;
+
+	if (debugY == 0) debugY = 180;
+
+	int y = cL[0].y - debugY;
+	int rangeX = 50;
+
 	int dL = 0;
 	int dR = 0;
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < cL[0].y/debugY; i++)
 	{
 		Point lL = cL[cL.size()-1];
 		Point lR = cR[cR.size()-1];
 
 		float maxS = 0;
-		float scoreL[101];
-		float scoreR[101];
+		float scoreL[2*rangeX + 1];
+		float scoreR[2*rangeX + 1];
 
-		for (int j = -50; j <= 50; j++)
+		for (int j = -rangeX; j <= rangeX; j++)
 		{
-			Point leftSide(-10, 0);
-			Point rightSide(10, 0);
-
-
 			float l = 0;
 			float r = 0;
 
-			for (int i = -3; i <= 3; i++)
+			for (int shift = -3; shift <= 3; shift++)
 			{
-				Point shift(i, 0);
-				l += calcScore(filtered, lL+shift, Point2f(lL.x + j + i, y));
-				r += calcScore(filtered, lR+shift, Point2f(lR.x + j + i, y));
+				l += calcScore(buffered, lL+Point(shift, 0), Point2f(lL.x + j + shift, y));
+				r += calcScore(buffered, lR+Point(shift, 0), Point2f(lR.x + j + shift, y));
 			}
 
-			scoreL[j+50] = l;
-			scoreR[j+50] = r;
+			scoreL[j+rangeX] = l;
+			scoreR[j+rangeX] = r;
 		}
 
 		maxS = 0;
 
 		int newdL;
 		int newdR;
-		for (int iL = -50; iL <= 50; iL++)
+		for (int iL = -rangeX; iL <= rangeX; iL++)
 		{
-			for (int iR = -50; iR <= 50; iR++)
+			for (int iR = -rangeX; iR <= rangeX; iR++)
 			{
 				float change = abs(iL - iR);
-				float score = scoreL[iL+50] * scoreR[iR+50];
+				float score = scoreL[iL + rangeX] * scoreR[iR + rangeX];
 				float lAngle = 1.0 - abs(dL - iL) / (abs(dL - iL) + 10.0);
 				float rAngle = 1.0 - abs(dR - iR) / (abs(dR - iR) + 10.0);
 				score *= lAngle * rAngle;
@@ -291,11 +275,15 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 		cL.push_back(Point2f(lL.x + dL, y));
 		cR.push_back(Point2f(lR.x + dR, y));
-		y -= 180;
+		y -= debugY;
 	}
 
 
 #ifdef DEBUG_BIRD
+	Mat filteredDbg;
+	buffered.copyTo(filteredDbg);
+    cvtColor(filteredDbg, filteredDbg, COLOR_GRAY2BGR);
+
 	drawPointsX(filteredDbg, cL);
 	drawPointsX(filteredDbg, cR);
 	if (debugX == 0) imshow("filteredDbg", filteredDbg);

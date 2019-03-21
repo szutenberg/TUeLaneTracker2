@@ -97,8 +97,14 @@ private:
 	cv::Mat buffer[5];
 	int bufferIt;
 
+
 	BaseHistogramModel	mBaseHistModel;  	/**< Selected Base-Histogram Model */
 	unique_ptr<LaneModel>   mPtrLaneModel;		/**< The detected Lane-Model */
+
+	const int mBUF_SIZE = 8;
+	int mBufIt = 0;
+	cv::Mat mBuf[8];
+
 
 	// Only Enable in case of Video Recording
 	//cv::VideoWriter mOutputVideo;
@@ -110,6 +116,7 @@ public:
 	void execute(cv::UMat& FrameGRAY);
 	void trackCurves(cv::Mat& map, int withFiltering);
 	void trackCurves2(cv::Mat& map);
+	cv::Mat createProbabilityMap(cv::Mat input);
 
 };
 
