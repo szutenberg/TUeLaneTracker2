@@ -18,8 +18,6 @@ const float BIRD_SCALE = 1.4 ;
 const int BIRD_WIDTH = 350 * BIRD_SCALE;
 const int BIRD_HEIGHT = 700 * BIRD_SCALE;
 
-
-
 const int BUF_SIZE = 8;
 int bufIt = 0;
 cv::Mat buf[BUF_SIZE];
@@ -68,7 +66,7 @@ float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 		ret += val;
 	}
 
-	return (float)ret / counter;
+	return (float)ret / counter + 30;
 }
 
 void drawPointsX(cv::Mat& img, vector<Point2f> points)
@@ -84,6 +82,7 @@ void drawPointsX(cv::Mat& img, vector<Point2f> points)
 		line(img, pt + c3, pt + c4, CvScalar(0, 0, 200), 2);
 	}
 }
+
 
 
 void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
@@ -172,7 +171,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 
 	//Gradient Tangent Probability Map
-	//	subtract(mGradTanTemplate, mBufferPool->GradientTangent[mBufferPos], mTempProbMat, cv::noArray(), CV_32S);
+	//	subtract(mGradTanTemplatescore, mBufferPool->GradientTangent[mBufferPos], mTempProbMat, cv::noArray(), CV_32S);
 	// We have one value for whole map due to bird transformation
 	// First we try with angle = 0;
 	mBufferPool->GradientTangent[mBufferPos].convertTo(mTempProbMat, CV_32S);
@@ -208,7 +207,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	for (int i = 0; i < BUF_SIZE; i++)
 		addWeighted(filtered, 1, buf[i], 1.0/BUF_SIZE, 1, filtered);
 
-	GaussianBlur(filtered, filtered, cv::Size(15,1), 0, 0);
+	GaussianBlur(filtered, filtered, cv::Size(15,5), 0, 0);
 
 
 	Mat filteredDbg;
@@ -230,10 +229,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	cL.push_back(startPointsBird[2]);
 	cR.push_back(startPointsBird[0]);
 
-	cout << startPointsBird;
-
-
-	int y = cL[0].y - 200;
+	int y = cL[0].y - 180;
 	int dL = 0;
 	int dR = 0;
 	for(int i = 0; i < 5; i++)
@@ -242,51 +238,60 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 		Point lR = cR[cR.size()-1];
 
 		float maxS = 0;
-
-		float tL[101];
-		float tR[101];
-		float angleCoeff;
+		float scoreL[101];
+		float scoreR[101];
 
 		for (int j = -50; j <= 50; j++)
 		{
 			Point leftSide(-10, 0);
 			Point rightSide(10, 0);
-			float l = calcScore(filtered, lL, Point2f(lL.x + j, y)) * 4.0;
-			//l -= calcScore(filtered, lL+leftSide, Point(lL.x + j, y)+leftSide);
-			//l -= calcScore(filtered, lL+rightSide, Point(lL.x + j, y)+rightSide);
 
-			float r = calcScore(filtered, lR, Point2f(lR.x + j, y)) * 4.0;
-			//r -= calcScore(filtered, lR+leftSide, Point(lR.x + j, y)+leftSide);
-			//r -= calcScore(filtered, lR+rightSide, Point(lR.x + j, y)+rightSide);
 
-			angleCoeff = 1.0 - abs(dL - j) / (abs(dL - j) + 10.0);
-			tL[j+50] = l * angleCoeff;
+			float l = 0;
+			float r = 0;
 
-			angleCoeff = 1.0 - abs(dR - j) / (abs(dR - j) + 10.0);
-			tR[j+50] = r * angleCoeff;
-			//cout << j << "\t" << l << "\t" << r << endl;
+			for (int i = -3; i <= 3; i++)
+			{
+				Point shift(i, 0);
+				l += calcScore(filtered, lL+shift, Point2f(lL.x + j + i, y));
+				r += calcScore(filtered, lR+shift, Point2f(lR.x + j + i, y));
+			}
+
+			scoreL[j+50] = l;
+			scoreR[j+50] = r;
 		}
 
 		maxS = 0;
-		for (int a = -50; a <= 50; a++)
+
+		int newdL;
+		int newdR;
+		for (int iL = -50; iL <= 50; iL++)
 		{
-			for (int b = -50; b <= 50; b++)
+			for (int iR = -50; iR <= 50; iR++)
 			{
-				float change = abs(a-b);
-				float score = tL[a+50] * tR[b+50] * (1.0 - change / (change + 10.0));
+				float change = abs(iL - iR);
+				float score = scoreL[iL+50] * scoreR[iR+50];
+				float lAngle = 1.0 - abs(dL - iL) / (abs(dL - iL) + 10.0);
+				float rAngle = 1.0 - abs(dR - iR) / (abs(dR - iR) + 10.0);
+				score *= lAngle * rAngle;
+				score *= (1.0 - change / (change + 10.0));
 
 				if (score > maxS)
 				{
 					maxS = score;
-					dL = a;
-					dR = b;
+					newdL = iL;
+					newdR = iR;
 				}
+
 			}
 		}
-		//cout << i << ":" << maxS << endl;
+
+		dL = newdL;
+		dR = newdR;
+
 		cL.push_back(Point2f(lL.x + dL, y));
 		cR.push_back(Point2f(lR.x + dR, y));
-		y -= 200;
+		y -= 180;
 	}
 
 
