@@ -214,7 +214,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
     if (debugX == 0) imshow("trackCurves2 - debug Horizon", dbg);
 #endif // DEBUG_HORIZON
 
-	bird.configureTransform(baseL, defaultVp, baseR, defaultVp, 600, BIRD_WIDTH, BIRD_HEIGHT);
+	bird.configureTransform2(baseL, baseR, defaultVp, BIRD_WIDTH, BIRD_HEIGHT);
 	birdRaw = bird.applyTransformation(input);
 
 	if (debugX == 0) imshow("input", birdRaw);

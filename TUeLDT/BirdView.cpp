@@ -88,6 +88,55 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
     mInputQuad[2] = br;
     mInputQuad[3] = bl;
 
+    std::cout << el << er << br << bl << "\n";
+
+    mWidth = width;
+    mHeight = height;
+
+    mOutputQuad[0] = Point2f(0, 0);
+    mOutputQuad[1] = Point2f(width - 1, 0);
+    mOutputQuad[2] = Point2f(width - 1, height - 1);
+    mOutputQuad[3] = Point2f(0, height - 1);
+
+    mLambda = getPerspectiveTransform( mInputQuad, mOutputQuad );
+
+	invert(mLambda, mLambdaInv);
+
+	return true;
+}
+
+bool BirdView::configureTransform2(Point l1, Point r1, Point vp, int width, int height)
+{
+	if (vp.x == 0) return false;
+
+	Point2f vl = Point2f(vp) - Point2f(l1);
+	Point2f vr = Point2f(vp) - Point2f(r1);
+
+	float len = sqrt(vl.x*vl.x + vl.y*vl.y);
+
+	float LOC_SCALE = 0.95;
+
+	Point2f lTop = Point2f(l1) + LOC_SCALE * vl;
+	Point2f rTop = Point2f(r1) + LOC_SCALE * vr;
+
+	float dif = rTop.x - lTop.x;
+
+	lTop.x -= dif * 2;
+	rTop.x += dif * 2;
+
+	Point2f lBottom = l1;
+	Point2f rBottom = r1;
+
+	dif = rBottom.x - lBottom.x;
+	lBottom.x -= dif * 2;
+	rBottom.x += dif * 2;
+	const float X = 10; // FIX ME
+    // Note that points in inputQuad and outputQuad have to be from top-left in clockwise order
+    mInputQuad[0] = lTop + Point2f(-X, -X);
+    mInputQuad[1] = rTop + Point2f(X, -X);
+    mInputQuad[2] = rBottom + Point2f(X, X);
+    mInputQuad[3] = lBottom + Point2f(-X, X);
+
     mWidth = width;
     mHeight = height;
 
