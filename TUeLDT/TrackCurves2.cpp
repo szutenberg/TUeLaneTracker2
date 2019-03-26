@@ -177,7 +177,44 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	l2.x = mPtrLaneModel->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
 
 
-	bird.configureTransform(Point2f(180, 519), Point2f(180+210, 319), Point2f(1200, 519), Point2f(1200-210, 319), 600, BIRD_WIDTH, BIRD_HEIGHT);
+    int binWidth = mLaneFilter->LANE.AVG_WIDTH/mLaneFilter->BINS_STEP_cm;
+    int zeroPos = mLaneFilter->BASE_BINS.rows/2;
+    int lPos = zeroPos - binWidth/2;
+    int rPos = zeroPos + binWidth/2;
+
+    assert(lPos >= 0);
+    assert(rPos < mLaneFilter->BASE_BINS.rows);
+
+    Point2f defaultVp = mLaneFilter->O_ICCS_ICS;
+    defaultVp += Point2f(mLaneFilter->CAMERA.HORIZON_VH[1], mLaneFilter->CAMERA.HORIZON_VH[0]);
+    defaultVp.y += - this->mCAMERA.RES_VH[0] + input.rows; // we have ROI
+
+    Point2f baseL = defaultVp;
+    baseL.y = r1.y;
+    baseL.x += mLaneFilter->BASE_BINS.at<int>(0, lPos);
+
+    Point2f baseR = defaultVp;
+    baseR.y = r1.y;
+    baseR.x += mLaneFilter->BASE_BINS.at<int>(0, rPos);
+
+
+#ifdef DEBUG_HORIZON
+	Mat dbg;
+	input.copyTo(dbg);
+    cvtColor(dbg, dbg, COLOR_GRAY2BGR);
+
+    vector<Point2f> pts;
+    cout << mLaneFilter->BASE_LINE_cm << "\t" << mLaneFilter->LANE.AVG_WIDTH << endl;
+    cout << "we have " << mLaneFilter->LANE.AVG_WIDTH/mLaneFilter->BINS_STEP_cm << " bins\n";
+    pts.push_back(baseL);
+    pts.push_back(baseR);
+    pts.push_back(defaultVp);
+    drawPointsX(dbg, pts);
+
+    if (debugX == 0) imshow("trackCurves2 - debug Horizon", dbg);
+#endif // DEBUG_HORIZON
+
+	bird.configureTransform(baseL, defaultVp, baseR, defaultVp, 600, BIRD_WIDTH, BIRD_HEIGHT);
 	birdRaw = bird.applyTransformation(input);
 
 	if (debugX == 0) imshow("input", birdRaw);
