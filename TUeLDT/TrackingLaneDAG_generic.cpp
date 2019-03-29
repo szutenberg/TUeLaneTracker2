@@ -196,10 +196,10 @@ add(mIntBase, mX_ICCS_SCALED, mIntBase);
 
 //Purview Intersections
 subtract(mY_ICCS, mLaneFilter->PURVIEW_LINE_ICCS, mIntPurview, cv::noArray(), CV_32S);
-divide(mIntPurview, mGradTanTemplate, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
+divide(mIntPurview, mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
 add(mIntPurview, mX_ICCS_SCALED, mIntPurview);
 
-// divide(mIntPurview,mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
+// divide(mIntPurview,mGradTanTemplate, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
 // TODO - diving by mGradTanTemplate may give better results. It has to be investigated.
 
 bitwise_and(mBufferPool->Probability[mBufferPos], mFocusTemplate, mBufferPool->Probability[mBufferPos]);
