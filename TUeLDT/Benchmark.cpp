@@ -33,19 +33,42 @@ mPtrLaneModel(nullptr)
 	mPtrTemplates 	        = mPtrBootingState->createTemplates();
 	assert(mPtrBootingState->currentStatus == StateStatus::DONE);
 
-	cv::String pathImg = path + "/20.jpg";
+	cv::String pathImg = path;
+	vector<cv::String> tmp;
+	glob(pathImg, tmp, 1);
+	sort(tmp.begin(), tmp.end()); // according to test names but not according to names
 
-	glob(pathImg, mTestPaths, 1);
-	for (auto& str : mTestPaths)
+	vector<cv::String> imagesInOneTest;
+
+
+	size_t pos = tmp[0].rfind('/');
+	assert(pos != cv::String::npos);
+	cv::String lastPath = tmp[0].substr(0, pos);
+	imagesInOneTest.push_back(tmp[0]);
+
+	for (size_t i = 1; i < tmp.size(); i++)
 	{
-		size_t pos = str.rfind('/');
+		size_t pos = tmp[i].rfind('/');
 		assert(pos != cv::String::npos);
-		str = str.substr(0, pos);
+		cv::String testPath = tmp[i].substr(0, pos);
+
+		if (testPath != lastPath)
+		{
+			Helpers::sortFileNames(imagesInOneTest);
+			mLastImgPaths.push_back(imagesInOneTest[imagesInOneTest.size()-1]);
+			mTestPaths.push_back(lastPath);
+			imagesInOneTest.clear();
+		}
+
+		imagesInOneTest.push_back(tmp[i]);
+
+		lastPath = testPath;
 	}
-	Helpers::sortFileNames(mTestPaths);
-	// printf("Detected %lu sequences.\n", mTestPaths.size());
 
-
+	Helpers::sortFileNames(imagesInOneTest);
+	mLastImgPaths.push_back(imagesInOneTest[imagesInOneTest.size()-1]);
+	mTestPaths.push_back(lastPath);
+	imagesInOneTest.clear();
 }
 
 Benchmark::~Benchmark() {
@@ -86,6 +109,7 @@ vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point2f>& in, int
 
 int Benchmark::run()
 {
+	int i = 0;
 	for (cv::String testPath : mTestPaths)
 	{
 		std::cerr << testPath << endl;
@@ -129,15 +153,17 @@ int Benchmark::run()
 
     	display = mPtrFrameFeeder->dequeueDisplay();
 
-	    mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-	    mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    //mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, 340);
+
+	    //mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, 340);
+
 
 	    if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
 	    if (debugX == 0) cvWaitKey(100000);
 
 		printf("{\"lanes\": [");
-
-
 
 		if (mPtrLaneModel->benchL.size() == h_samples.size())
 		{
@@ -168,7 +194,7 @@ int Benchmark::run()
 			if (i) printf(", ");
 			printf("%d", h_samples[i]);
 		}
-		printf("], \"raw_file\": \"%s%s\"}\n", testPath.c_str(), "/20.jpg");
+		printf("], \"raw_file\": \"%s\"}\n", mLastImgPaths[i++].c_str());
 	}
 
 	return 0;

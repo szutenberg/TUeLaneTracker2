@@ -48,6 +48,7 @@ public:
 
 	vector< vector<  vector<cv::Point> > > mLanes; // lanes[Test][lane_id][point]
 	vector< cv::String > mTestPaths;
+	vector< cv::String > mLastImgPaths;
 	vector< int > h_samples;
 };
 
