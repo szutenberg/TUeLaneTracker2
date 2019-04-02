@@ -2,6 +2,8 @@
 #include "FrameFeeder.h"
 #include "StateMachine.h"
 #include "Benchmark.h"
+#include "DeepBenchmark.h"
+
 #include "boost/program_options.hpp"
 
 using namespace std;
@@ -27,6 +29,7 @@ int main(int argc, char* argv[]) /**
 	string lSourceStr;
 	string lConfigFileName;
 	string benchPath;
+	string deepBenchPath;
 
 	unique_ptr<LaneTracker::Config> lPtrConfig;
 	if (lReturn == 0) //create Configuration
@@ -54,6 +57,7 @@ int main(int argc, char* argv[]) /**
 		("debugY,y", po::value<int>(&debugY)->default_value(0),	"\t debug Y")
 		("debugZ,z", po::value<int>(&debugZ)->default_value(0),	"\t debug Z")
 		("benchmark,b", po::value<string>(&benchPath)->default_value(""), "\t path to the directory with test sequences (for tusimple - path to clips/0313-1 etc)")
+		("deepbenchmark,d", po::value<string>(&deepBenchPath)->default_value(""), "\t path to the directory with test sequences")
 		("Config,c", po::value<string>(&lConfigFileName)->default_value(""),
 				"\t yaml configuration file");
 
@@ -84,6 +88,13 @@ int main(int argc, char* argv[]) /**
 
 	// TODO: explain it in help
 	if (lSourceStr.find(".mp4") != string::npos) lFrameSource = FrameSource::STREAM;
+
+	if (!deepBenchPath.empty())
+	{
+		DeepBenchmark b(cv::String(deepBenchPath), *lPtrConfig.get());
+		b.run();
+		return 0;
+	}
 
 	if (!benchPath.empty())
 	{
