@@ -101,7 +101,7 @@ private:
 	BaseHistogramModel	mBaseHistModel;  	/**< Selected Base-Histogram Model */
 	unique_ptr<LaneModel>   mPtrLaneModel;		/**< The detected Lane-Model */
 
-	const int mBUF_SIZE = 8;
+	const int mBUF_SIZE = 3;
 	int mBufIt = 0;
 	cv::Mat mBuf[8];
 
@@ -117,6 +117,7 @@ public:
 	void trackCurves(cv::Mat& map, int withFiltering);
 	void trackCurves2(cv::Mat& map);
 	cv::Mat createProbabilityMap(cv::Mat input);
+	cv::Mat createHistogram(cv::Mat input);
 
 };
 
