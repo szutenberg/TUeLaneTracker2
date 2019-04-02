@@ -114,7 +114,7 @@ bool BirdView::configureTransform2(Point l1, Point r1, Point vp, int width, int 
 
 	float len = sqrt(vl.x*vl.x + vl.y*vl.y);
 
-	float LOC_SCALE = 0.95;
+	float LOC_SCALE = 0.8;
 
 	Point2f lTop = Point2f(l1) + LOC_SCALE * vl;
 	Point2f rTop = Point2f(r1) + LOC_SCALE * vr;
