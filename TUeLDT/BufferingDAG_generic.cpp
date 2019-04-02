@@ -291,6 +291,8 @@ mProfiler.start("FOCUS");
 
 	bitwise_and(mBufferPool->Probability[mBufferPos], mFocusTemplate, mBufferPool->Probability[mBufferPos]);
 
+	imshow("focussed Probability", mBufferPool->Probability[mBufferPos]);
+
 	if(mBufferPos < ((mBufferPool->Probability.size())-1) )
 	mBufferPos ++;
 				

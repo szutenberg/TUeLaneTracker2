@@ -170,7 +170,7 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane) {
 		int by = mBASE_LINE_ICS;
 
 		line(FRAME, cvPoint(px, py), cvPoint(bx, by),
-				cvScalar(0, 0, 0), 2);
+				cvScalar(0, 0, 0), 1);
 	}
 
 #ifndef DISPLAY_GRAPHICS_DCU
