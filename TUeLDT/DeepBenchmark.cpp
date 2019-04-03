@@ -21,7 +21,7 @@ mPtrVanishingPtFilter(nullptr),
 mPtrTemplates(nullptr),
 mPtrLaneModel(nullptr)
 {
-	for (int val = 160; val <= 710; val+= 10) h_samples.push_back(val);
+	for (int val = 330; val <= 480; val+= 50) h_samples.push_back(val);
 
 	mPtrBootingState   = unique_ptr<InitState>(new InitState(mConfig));
 	mPtrLaneFilter.reset(nullptr);
@@ -34,52 +34,36 @@ mPtrLaneModel(nullptr)
 	assert(mPtrBootingState->currentStatus == StateStatus::DONE);
 
 	cv::String pathImg = path;
-	vector<cv::String> tmp;
-	glob(pathImg, tmp, 1);
-	sort(tmp.begin(), tmp.end()); // according to test names but not according to names
+	glob(pathImg, mImgPaths, 1);
 
-	vector<cv::String> imagesInOneTest;
+	Helpers::sortFileNames(mImgPaths);
 
-
-	size_t pos = tmp[0].rfind('/');
+	size_t pos = mImgPaths[0].rfind('/');
 	assert(pos != cv::String::npos);
-	cv::String lastPath = tmp[0].substr(0, pos);
-	imagesInOneTest.push_back(tmp[0]);
+	cv::String lastPath = mImgPaths[0].substr(0, pos);
 
-	for (size_t i = 1; i < tmp.size(); i++)
-	{
-		size_t pos = tmp[i].rfind('/');
-		assert(pos != cv::String::npos);
-		cv::String testPath = tmp[i].substr(0, pos);
-
-		if (testPath != lastPath)
-		{
-			Helpers::sortFileNames(imagesInOneTest);
-			mLastImgPaths.push_back(imagesInOneTest[imagesInOneTest.size()-1]);
-			mTestPaths.push_back(lastPath);
-			imagesInOneTest.clear();
-		}
-
-		imagesInOneTest.push_back(tmp[i]);
-
-		lastPath = testPath;
-	}
-
-	Helpers::sortFileNames(imagesInOneTest);
-	mLastImgPaths.push_back(imagesInOneTest[imagesInOneTest.size()-1]);
 	mTestPaths.push_back(lastPath);
-	imagesInOneTest.clear();
 }
 
 DeepBenchmark::~DeepBenchmark() {
 	// TODO Auto-generated destructor stub
 }
 
-vector<cv::Point> DeepBenchmark::generateHSamplesPoints(vector<cv::Point2f>& in, int ymin)
+vector<cv::Point> DeepBenchmark::generateHSamplesPoints(vector<cv::Point2f>& in)
 {
-	//ymin = 470; // we focus only on points until purview line
-	int i = in.size() - 1;
+	vector<cv::Point2f> tmp = generateHSamplesPointsFloat(in);
 	vector<cv::Point> out;
+
+	for (int i = 0; i < tmp.size(); i++) out.push_back(cv::Point(tmp[i]));
+
+	return out;
+}
+
+
+vector<cv::Point2f> DeepBenchmark::generateHSamplesPointsFloat(vector<cv::Point2f>& in)
+{
+	int i = in.size() - 1;
+	vector<cv::Point2f> out;
 
 	if (i < 1) return out;
 
@@ -89,16 +73,13 @@ vector<cv::Point> DeepBenchmark::generateHSamplesPoints(vector<cv::Point2f>& in,
 		{
 			i--;
 		}
-
+		//cout << ypos << "\t" << in[i-1] << "\t" << in[i] << endl;
 		cv::Point2f vec(in[i-1] - in[i]);
-		cv::Point pos(in[i]);
-		pos.x += ((float)(in[i-1].x - in[i].x)) * (ypos - in[i].y) / (in[i-1].y - in[i].y) + 0.5;
-		if (pos.x < 0) pos.x = -2;
-		if (pos.x > (mConfig.cam_res_h - 1)) pos.x = -2;
+		cv::Point2f pos(in[i]);
+		pos.x += ((float)(in[i-1].x - in[i].x)) * ((float)ypos - in[i].y) / (in[i-1].y - in[i].y);
+		//cout << pos.x << endl;
 		pos.y = ypos;
 
-		if (pos.y < ymin) pos.x = 10000;
-		if (pos.y < ymin) pos.x = -2;
 
 		out.push_back(pos);
 	}
@@ -107,10 +88,9 @@ vector<cv::Point> DeepBenchmark::generateHSamplesPoints(vector<cv::Point2f>& in,
 }
 
 
+
 int DeepBenchmark::run()
 {
-	return 0;
-	int i = 0;
 	for (cv::String testPath : mTestPaths)
 	{
 		std::cerr << testPath << endl;
@@ -137,65 +117,107 @@ int DeepBenchmark::run()
 	    mPtrTrackingState->setupDAG(mPtrLaneFilter.get(), mPtrVanishingPtFilter.get());
 	    mPtrFrameRenderer.reset(new FrameRenderer(*mPtrLaneFilter, *mPtrFrameFeeder.get() ));
 
-	    for (int i = 1; i <= 17; i++)
+	    // i have read already two frames
+
+	    for (int i = 2; i <= 4; i++)
 	    {
 	    	frame = mPtrFrameFeeder->dequeue();
 	    	mPtrLaneModel = mPtrTrackingState->run(frame);
 
 	    	display = mPtrFrameFeeder->dequeueDisplay();
 
-	    	mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-	    	mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
+	    	mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL);
+	    	mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR);
 	    	if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
 	    }
 
-    	frame = mPtrFrameFeeder->dequeue();
-    	mPtrLaneModel = mPtrTrackingState->run(frame);
+	    for (int i = 5; i < mImgPaths.size(); i++)
+	    {
+			frame = mPtrFrameFeeder->dequeue();
+			mPtrLaneModel = mPtrTrackingState->run(frame);
 
-    	display = mPtrFrameFeeder->dequeueDisplay();
+			display = mPtrFrameFeeder->dequeueDisplay();
 
-	    //mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-	    mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL, 340);
+			mPtrLaneModel->benchL = generateHSamplesPoints(mPtrLaneModel->curveL);
+			mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR);
 
-	    //mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, mPtrLaneModel->vanishingPt.V + mConfig.cam_res_v/2);
-	    mPtrLaneModel->benchR = generateHSamplesPoints(mPtrLaneModel->curveR, 340);
+			vector<cv::Point2f> benchLfloat = generateHSamplesPointsFloat(mPtrLaneModel->curveL);
+			vector<cv::Point2f> benchRfloat = generateHSamplesPointsFloat(mPtrLaneModel->curveR);
 
 
-	    if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
+			cv::Point2f r1, r2, l1, l2;
+			r1.y = l1.y = 480;
+			r2.y = l2.y = 360; ///// Watch out
+
+			r1.x = mPtrLaneModel->boundaryRight[0] + 320;
+			r2.x = mPtrLaneModel->boundaryRight[1] + 320;
+
+			l1.x = mPtrLaneModel->boundaryLeft[0] + 320;
+			l2.x = mPtrLaneModel->boundaryLeft[1] + 320;
+
+			cv::Point2f vr = r2 - r1;
+			cv::Point2f vl = l2 - l1;
+			vr /= r1.y-r2.y;
+			vl /= r1.y-r2.y;
+
+
+
+			if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
+
+			printf("{\"lanesA\": [");
+
+			if (mPtrLaneModel->benchL.size() == h_samples.size())
+			{
+				printf("[");
+				for (size_t i = 0; i < mPtrLaneModel->benchL.size(); i++)
+				{
+					if (i) printf(", ");
+					printf("%4.1f", benchLfloat[i].x);
+				}
+				printf("]");
+				if (mPtrLaneModel->benchR.size() == h_samples.size()) printf(",");
+			}
+
+			if (mPtrLaneModel->benchR.size() == h_samples.size())
+			{
+				printf("[");
+				for (size_t i = 0; i < mPtrLaneModel->benchR.size(); i++)
+				{
+					if (i) printf(", ");
+					printf("%4.1f", benchRfloat[i].x);
+				}
+				printf("]");
+			}
+			printf("]");
+
+			printf(", \"lanesB\": [[");
+
+			for (size_t i = 0; i < h_samples.size(); i++)
+			{
+				float x = l1.x + vl.x * (l1.y - h_samples[i]);
+				if (i) printf(", ");
+				printf("%4.1f", x);
+			}
+			printf("], [");
+			for (size_t i = 0; i < h_samples.size(); i++)
+			{
+				float x = r1.x + vr.x * (r1.y - h_samples[i]);
+				if (i) printf(", ");
+				printf("%4.1f", x);
+			}
+			printf("]]");
+
+			printf(", \"h_samples\": [");
+			for (size_t i = 0; i < h_samples.size(); i++)
+			{
+				if (i) printf(", ");
+				printf("%d", h_samples[i]);
+			}
+			printf("], \"raw_file\": \"%s\"}\n", mImgPaths[i].c_str());
+
+	    }
 	    if (debugX == 0) cvWaitKey(100000);
 
-		printf("{\"lanes\": [");
-
-		if (mPtrLaneModel->benchL.size() == h_samples.size())
-		{
-			printf("[");
-			for (size_t i = 0; i < mPtrLaneModel->benchL.size(); i++)
-			{
-				if (i) printf(", ");
-				printf("%d", mPtrLaneModel->benchL[i].x);
-			}
-			printf("]");
-			if (mPtrLaneModel->benchR.size() == h_samples.size()) printf(",");
-		}
-
-		if (mPtrLaneModel->benchR.size() == h_samples.size())
-		{
-			printf("[");
-			for (size_t i = 0; i < mPtrLaneModel->benchR.size(); i++)
-			{
-				if (i) printf(", ");
-				printf("%d", mPtrLaneModel->benchR[i].x);
-			}
-			printf("]");
-		}
-		printf("]");
-		printf(", \"h_samples\": [");
-		for (size_t i = 0; i < h_samples.size(); i++)
-		{
-			if (i) printf(", ");
-			printf("%d", h_samples[i]);
-		}
-		printf("], \"raw_file\": \"%s\"}\n", mLastImgPaths[i++].c_str());
 	}
 
 	return 0;

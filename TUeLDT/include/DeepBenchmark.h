@@ -29,8 +29,8 @@ public:
 	virtual ~DeepBenchmark();
 	const LaneTracker::Config& 		mConfig;
 	int run();
-	vector<cv::Point> generateHSamplesPoints(vector<cv::Point2f>& in, int ymin);
-
+	vector<cv::Point2f> generateHSamplesPointsFloat(vector<cv::Point2f>& in);
+	vector<cv::Point> generateHSamplesPoints(vector<cv::Point2f>& in);
 
 //private:
 	 unique_ptr<InitState>						mPtrBootingState;
@@ -48,7 +48,7 @@ public:
 
 	vector< vector<  vector<cv::Point> > > mLanes; // lanes[Test][lane_id][point]
 	vector< cv::String > mTestPaths;
-	vector< cv::String > mLastImgPaths;
+	vector< cv::String > mImgPaths;
 	vector< int > h_samples;
 };
 
