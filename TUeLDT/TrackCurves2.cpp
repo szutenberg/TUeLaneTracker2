@@ -52,15 +52,28 @@ float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 	float p = diry * a.x + dirx * a.y;
 	int ret = 0;
 
+	int tab[256];
+	for (int i = 0; i < 256; i++) tab[i] = 0;
+
+
 	for (int i = from; i <= to; i++, p+=slope, counter++)
 	{
 		int j = p;
 		int px = dirx * i + diry * j;
 		int py = dirx * j + diry * i;
 		int val = (int)img.at<unsigned char>(py, px);
-		val *= val;
 		ret += val;
+		tab[val]++;
 	}
+
+	int sum = 0;
+	int i = 0;
+	while(sum * 2 < counter)
+	{
+		sum += tab[i++];
+	}
+
+	return i + 100;
 
 	return (float)ret / counter + 60;
 }
@@ -330,6 +343,38 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	//createHistogram(birdRaw);
 	prob = createProbabilityMap(birdRaw);
 
+	vector<Point2f> startPoints, startPointsBird;
+	startPoints.push_back(r1);
+	startPoints.push_back(r2);
+	startPoints.push_back(l1);
+	startPoints.push_back(l2);
+	startPoints.push_back(Point2f(input.cols, defaultVp.y));
+	startPoints.push_back(Point2f(input.cols, input.rows));
+	startPoints.push_back(Point2f(0, defaultVp.y));
+	startPoints.push_back(Point2f(0, input.rows));
+	bird.convertPointsToBird(startPoints, startPointsBird);
+
+	line(prob, startPointsBird[4],startPointsBird[5], CvScalar(0), 5);
+	line(prob, startPointsBird[6],startPointsBird[7], CvScalar(0), 5);
+
+	if (debugX == 0) imshow("prob", prob);
+
+
+
+	vector<Point2f> cL, cR;
+	cR.push_back(startPointsBird[0]);
+	Point2f avgP = (startPointsBird[0] + startPointsBird[1])/2;
+	cR.push_back(avgP);
+
+	cL.push_back(startPointsBird[2]);
+	avgP = (startPointsBird[2] + startPointsBird[3])/2;
+	cL.push_back(avgP);
+
+
+
+	mBUF_SIZE = 5;
+
+
 	if (mBuf[0].rows == 0)
 	{
 		for (int i = 0; i < mBUF_SIZE; i++) prob.copyTo(mBuf[i]);
@@ -345,17 +390,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 	//GaussianBlur(buffered, buffered, cv::Size(15,5), 0, 0);
 
-	vector<Point2f> startPoints, startPointsBird;
-	startPoints.push_back(r1);
-	startPoints.push_back(r2);
-	startPoints.push_back(l1);
-	startPoints.push_back(l2);
 
-	bird.convertPointsToBird(startPoints, startPointsBird);
-
-	vector<Point2f> cL, cR;
-	cL.push_back(startPointsBird[2]);
-	cR.push_back(startPointsBird[0]);
 
 	Mat filteredDbg;
 	buffered.copyTo(filteredDbg);
@@ -364,12 +399,13 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 	if (debugY == 0) debugY = 180;
 
-	int y = cL[0].y - debugY;
+	int y = cL[1].y - debugY;
 	int rangeX = 60;
 
-	int dL = 0;
-	int dR = 0;
-	for(int i = 0; i < cL[0].y/debugY - 1; i++)
+	int dL = (cL[1].x - cL[0].x)/(cL[0].y - cL[1].y) * debugY;
+	int dR = (cR[1].x - cR[0].x)/(cR[0].y - cR[1].y) * debugY;
+
+	for(int i = 0; i < cL[1].y/debugY - 1; i++)
 	{
 		Point lL = cL[cL.size()-1];
 		Point lR = cR[cR.size()-1];
@@ -410,14 +446,8 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 			if (minR > r) minR = r;
 		}
 
-
-/*		minR = 30*9;
-		minL = 30*9;
-*/
-
 		if ((maxR-1) < (minR)) minR -= 1;
 		if ((maxL-1) < (minL)) minL -= 1;
-
 
 		maxR -= minR;
 		maxL -= minL;
@@ -445,14 +475,20 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 			{
 				float laneWidthDifCm = abs(iL - iR)/pixelsPerCm;
 				float score = scoreL[iL + rangeX] * scoreR[iR + rangeX];
-				float changeDirCm = (abs(dL - iL) + abs(dR - iR))/pixelsPerCm;
 
-				float widthC = 1.0 - laneWidthDifCm / (laneWidthDifCm + 30.0);
-				float angle = 1.0 - changeDirCm / (changeDirCm + 30.0);
+				float changeDirCm = (abs(dL - iL) + abs(dR - iR))/pixelsPerCm;
+				if (((dL < iL) && (dR < iR)) || ((dL > iL) && (dR > iR)))
+				{
+					changeDirCm = (abs(dL - iL - (dR - iR)))/pixelsPerCm;
+				}
+
+				float widthC = 1.0 - laneWidthDifCm / (laneWidthDifCm + 10.0);
+				float angle = 1.0 - changeDirCm / (changeDirCm + 10.0);
 				score *= angle * widthC;
 
 				float lWidth_cm = (lR.x + iR - lL.x - iL)/pixelsPerCm;
-			    if ((mLaneFilter->LANE.MIN_WIDTH <= lWidth_cm && lWidth_cm <= mLaneFilter->LANE.MAX_WIDTH) && (score > maxS))
+
+			    if (/*(mLaneFilter->LANE.MIN_WIDTH <= lWidth_cm && lWidth_cm <= mLaneFilter->LANE.MAX_WIDTH) && */(score > maxS))
 				{
 					maxS = score;
 					newdL = iL;
@@ -465,8 +501,10 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 		dL = newdL;
 		dR = newdR;
 
-		float lWidth_cm = (lR.x + dR - lL.x - dL)/pixelsPerCm;
-		int laneLoc = (lR.x + dL + lL.x + dR)/2;
+
+
+		//float lWidth_cm = (lR.x + dR - lL.x - dL)/pixelsPerCm;
+		//int laneLoc = (lR.x + dL + lL.x + dR)/2;
 		//cout << i << "\t" << lWidth_cm << "\t" << laneLoc << "\n";
 
 
