@@ -73,7 +73,7 @@ float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 		sum += tab[i++];
 	}
 
-	return i + 100;
+	return i + 50;
 
 	return (float)ret / counter + 60;
 }
@@ -429,12 +429,12 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 				l += calcScore(buffered, lL+Point(shift, 0), Point2f(lL.x + j + shift, y));
 				r += calcScore(buffered, lR+Point(shift, 0), Point2f(lR.x + j + shift, y));
 			}
-
+/*
 			for (int shift = 6; shift <= 8; shift++)
 			{
 				l -= (calcScore(buffered, lL+Point(shift, 0), Point2f(lL.x + j + shift, y)))*0.5;
 				r -= (calcScore(buffered, lR+Point(-shift, 0), Point2f(lR.x + j - shift, y)))*0.5;
-			}
+			}*/
 
 			scoreL[j+rangeX] = l;
 			scoreR[j+rangeX] = r;
@@ -473,20 +473,26 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 		{
 			for (int iR = -rangeX; iR <= rangeX; iR++)
 			{
-				float laneWidthDifCm = abs(iL - iR)/pixelsPerCm;
+//				float laneWidthDifCm = abs(iL - iR)/pixelsPerCm;
 				float score = scoreL[iL + rangeX] * scoreR[iR + rangeX];
-
+/*
 				float changeDirCm = (abs(dL - iL) + abs(dR - iR))/pixelsPerCm;
 				if (((dL < iL) && (dR < iR)) || ((dL > iL) && (dR > iR)))
 				{
 					changeDirCm = (abs(dL - iL - (dR - iR)))/pixelsPerCm;
 				}
 
-				float widthC = 1.0 - laneWidthDifCm / (laneWidthDifCm + 10.0);
-				float angle = 1.0 - changeDirCm / (changeDirCm + 10.0);
-				score *= angle * widthC;
+*/
 
-				float lWidth_cm = (lR.x + iR - lL.x - iL)/pixelsPerCm;
+				float centerChangeCm = abs((iR + iL) - (dR + dL))/pixelsPerCm/2;
+				float widthChangeCm  = abs(iR - iL)/pixelsPerCm;
+
+
+				float coef1 = 1.0 - centerChangeCm / (centerChangeCm + 50.0);
+				float coef2 = 1.0 - widthChangeCm / (widthChangeCm + 40.0);
+				score *= coef1 * coef2;
+
+				//float lWidth_cm = (lR.x + iR - lL.x - iL)/pixelsPerCm;
 
 			    if (/*(mLaneFilter->LANE.MIN_WIDTH <= lWidth_cm && lWidth_cm <= mLaneFilter->LANE.MAX_WIDTH) && */(score > maxS))
 				{

@@ -21,11 +21,13 @@
 #include "FrameFeeder.h"
 #include "Helpers.h"
 
+
+
 ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 : mQueuesSync(true),
-  mMAX_BUFFER_SIZE(25),
+  mMAX_BUFFER_SIZE(2000),
   mMAX_RETRY(100), 		// Main thread sleeps for 1ms and then retry to grab.
-  mSLEEP_ms(50),  		// Sleep time for the mAsyncGrabber
+  mSLEEP_ms(10),  		// Sleep time for the mAsyncGrabber
   mFolder(""),
   mSkipFrames(0),
   mFrameCount(0)
@@ -142,6 +144,7 @@ void ImgStoreFeeder::enqueue(cv::UMat& frame, vector<cv::UMat>& queue)
       {
          queue.erase(queue.begin());
 
+         cerr << "Dropping frames in the queue!\n";
          #ifdef PROFILER_ENABLED
           LOG_INFO_(LDTLog::STATE_MACHINE_LOG) <<endl
           <<"******************************"<<endl
