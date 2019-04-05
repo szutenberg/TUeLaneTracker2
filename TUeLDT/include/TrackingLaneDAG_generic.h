@@ -114,7 +114,6 @@ public:
 	TrackingLaneDAG_generic(BufferingDAG_generic&& bufferingGraph);
 	int  init_DAG(LaneFilter* laneFilter, VanishingPtFilter* vpFilter);
 	void execute(cv::UMat& FrameGRAY);
-	void trackCurves(cv::Mat& map, int withFiltering);
 	void trackCurves2(cv::Mat& map);
 	cv::Mat createProbabilityMap(cv::Mat input);
 	cv::Mat createHistogram(cv::Mat input);
