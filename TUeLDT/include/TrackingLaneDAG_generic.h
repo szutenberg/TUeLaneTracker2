@@ -103,7 +103,13 @@ private:
 
 	int mBUF_SIZE;
 	int mBufIt = 0;
-	cv::Mat mBuf[16];
+	cv::Mat mBufValue[16];
+	cv::Mat mBufGrad[16];
+
+
+
+	cv::Mat mProbVal;
+	cv::Mat mProbBin;
 
 
 	// Only Enable in case of Video Recording
@@ -115,7 +121,8 @@ public:
 	int  init_DAG(LaneFilter* laneFilter, VanishingPtFilter* vpFilter);
 	void execute(cv::UMat& FrameGRAY);
 	void trackCurves2(cv::Mat& map);
-	cv::Mat createProbabilityMap(cv::Mat input);
+	void createProbabilityMap(cv::Mat input, cv::Mat& probVal, cv::Mat& probGrad);
+	void calcHistogram(cv::Point2f from, cv::Point2f to, cv::Mat pVal, cv::Mat pGrad, float* hist);
 	cv::Mat createHistogram(cv::Mat input);
 
 };
