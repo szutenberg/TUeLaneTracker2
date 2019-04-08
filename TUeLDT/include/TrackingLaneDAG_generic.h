@@ -121,7 +121,7 @@ public:
 	int  init_DAG(LaneFilter* laneFilter, VanishingPtFilter* vpFilter);
 	void execute(cv::UMat& FrameGRAY);
 	void trackCurves2(cv::Mat& map);
-	void createProbabilityMap(cv::Mat input, cv::Mat& probVal, cv::Mat& probGrad);
+	void createProbabilityMap(cv::Mat input);
 	void calcHistogram(cv::Point2f from, cv::Point2f to, cv::Mat pVal, cv::Mat pGrad, float* hist);
 	cv::Mat createHistogram(cv::Mat input);
 

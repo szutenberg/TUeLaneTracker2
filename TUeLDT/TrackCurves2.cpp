@@ -31,10 +31,6 @@ void TrackingLaneDAG_generic::calcHistogram(cv::Point2f from, cv::Point2f to, cv
 	int xmin = min(from.x, to.x);
 	int xmax = max(from.x, to.x);
 
-	//cout << from << to << endl;
-	//cout << "x" << xmin << "\t" << xmax << "\n";
-	//cout << "y" << ymin << "\t" << ymax << "\n";
-
 	for (int i = 0; i < 200; i++) hist[i] = 0;
 
 	for (int j = ymin; j <= ymax; j++)
@@ -50,20 +46,8 @@ void TrackingLaneDAG_generic::calcHistogram(cv::Point2f from, cv::Point2f to, cv
 
 		}
 	}
-/*
-	float maxVal = 0.001;
 
-	for (int i = 0; i < 200; i++) maxVal = max(maxVal, hist[i]);
-	for (int i = 0; i < 200; i++) hist[i] /= maxVal;
-*/
 	hist[histRange] += 0.00001;
-	//for (int i = 0; i < 200; i++) cout << i << "\t" << hist[i] << endl;
-
-
-
-
-
-
 }
 
 float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
@@ -125,6 +109,12 @@ float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 	return (float)ret / counter + 60;
 }
 
+
+
+
+
+
+
 void drawPointsX(cv::Mat& img, vector<Point2f> points)
 {
 	cv::Point c1(-3, 0);
@@ -140,7 +130,7 @@ void drawPointsX(cv::Mat& img, vector<Point2f> points)
 }
 
 
-void TrackingLaneDAG_generic::createProbabilityMap(cv::Mat input, cv::Mat& probVal, cv::Mat& probGrad)
+void TrackingLaneDAG_generic::createProbabilityMap(cv::Mat input)
 {
 	// TODO use different variables when making parallel
 	Sobel( input, mGradX, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
@@ -156,15 +146,12 @@ void TrackingLaneDAG_generic::createProbabilityMap(cv::Mat input, cv::Mat& probV
 	mFrameGradMag = mGradX_abs + mGradY_abs;
 	mFrameGradMag.convertTo(mFrameGradMag, CV_8U);
 
-	cv::divide(mGradY, mGradX, probGrad, 1.0/180*80.0, -1);
-	probGrad += histRange;
-
 	mGradY += mGradX; // we want to have (y+x)/x * histRange
-	cv::divide(mGradY, mGradX, mProbBin, 180, -1);
-	mProbBin -= 100;
+	cv::divide(mGradY, mGradX, mProbBin, debugY, -1);
+	mProbBin -= debugY - histRange;
 
-	mMask = mProbBin == 80;
-	mProbBin.setTo(0, mMask);
+	//mMask = mProbBin == histRange;
+	//mProbBin.setTo(0, mMask);
 
 	mMask = mProbBin < 0;
 	mProbBin.setTo(0, mMask);
@@ -189,15 +176,15 @@ void TrackingLaneDAG_generic::createProbabilityMap(cv::Mat input, cv::Mat& probV
 	divide(mProbMap_GradMag, mTempProbMat, mProbMap_GradMag, 255, -1);
 
 	// Intermediate Probability Map
-	probVal = mProbMap_GradMag + mProbMap_Gray;
-	mMask = probVal <0 ;
-	probVal.setTo(0,mMask);
+	mProbVal = mProbMap_GradMag + mProbMap_Gray;
+	mMask = mProbVal <0 ;
+	mProbVal.setTo(0,mMask);
 
 	//Gradient Tangent Probability Map
 	//	subtract(mGradTanTemplatescore, mBufferPool->GradientTangent[mBufferPos], mTempProbMat, cv::noArray(), CV_32S);
 	// We have one value for whole map due to bird transformation
 	// First we try with angle = 0;
-	probVal.convertTo(mTempProbMat, CV_32S);
+	mProbVal.convertTo(mTempProbMat, CV_32S);
 
 	mTempProbMat= abs(mTempProbMat);
 	mTempProbMat.copyTo(mProbMap_GradDir);
@@ -209,8 +196,8 @@ void TrackingLaneDAG_generic::createProbabilityMap(cv::Mat input, cv::Mat& probV
 
 
 	//Final Probability Map
-	multiply(probVal, mProbMap_GradDir, probVal);
-	probVal.convertTo(probVal, CV_8U, 1.0/255, 0);
+	multiply(mProbVal, mProbMap_GradDir, mProbVal);
+	mProbVal.convertTo(mProbVal, CV_8U, 1.0/255/2, 0);
 
 }
 
@@ -220,10 +207,10 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	cv::Point r1, r2, l1, l2;
 	BirdView bird;
 	Mat birdRaw;
-	Mat bufVal;
-	Mat bufGrad;
-	Mat prob; // probability map
-	Mat probGrad;
+
+
+	if (debugY == 0) debugY = 170;
+
 
 #ifdef DEBUG_BIRD
     if (debugX == 0) imshow("trackCurves2 - input", input);
@@ -252,7 +239,7 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
     defaultVp.y += - this->mCAMERA.RES_VH[0] + input.rows; // we have ROI
 
     Point2f baseL = defaultVp;
-    baseL.y = r1.y;
+    baseL.y = l1.y;
     baseL.x += mLaneFilter->BASE_BINS.at<int>(0, lPos);
 
     Point2f baseR = defaultVp;
@@ -282,9 +269,8 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	if (debugX == 0) imshow("input", birdRaw);
 	GaussianBlur(birdRaw, birdRaw, cv::Size(5,5), 1, 1);
 	if (debugX == 0) imshow("inputBlur", birdRaw);
-	//createHistogram(birdRaw);
-	createProbabilityMap(birdRaw, prob, probGrad);
 
+	createProbabilityMap(birdRaw);
 
 	vector<Point2f> startPoints, startPointsBird;
 	startPoints.push_back(r1);
@@ -297,10 +283,12 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 	startPoints.push_back(Point2f(0, input.rows));
 	bird.convertPointsToBird(startPoints, startPointsBird);
 
-	line(prob, startPointsBird[4],startPointsBird[5], CvScalar(0), 5);
-	line(prob, startPointsBird[6],startPointsBird[7], CvScalar(0), 5);
+	line(mProbVal, startPointsBird[4],startPointsBird[5], CvScalar(0), 5);
+	line(mProbVal, startPointsBird[6],startPointsBird[7], CvScalar(0), 5);
+	line(mProbVal, startPointsBird[5],startPointsBird[7], CvScalar(0), 5);
 
-	if (debugX == 0) imshow("prob", prob);
+
+	if (debugX == 0) imshow("prob", mProbVal);
 
 	vector<Point2f> cL, cR;
 	cR.push_back(startPointsBird[0]);
@@ -313,46 +301,45 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 
 
-	mBUF_SIZE = 11;
+	mBUF_SIZE = 3;
 
 	if (mBufValue[0].rows == 0)
 	{
-		for (int i = 0; i < mBUF_SIZE; i++) prob.copyTo(mBufValue[i]);
+		for (int i = 0; i < mBUF_SIZE; i++) mProbVal.copyTo(mBufValue[i]);
 		for (int i = 0; i < mBUF_SIZE; i++) mProbBin.copyTo(mBufGrad[i]);
 		mBufIt = 0;
 	}
-	prob.copyTo(mBufValue[mBufIt]);
+	mProbVal.copyTo(mBufValue[mBufIt]);
 	mProbBin.copyTo(mBufGrad[mBufIt]);
 
 	mBufIt = (mBufIt+1)%mBUF_SIZE;
 
-	mBufValue[mBufIt].copyTo(bufVal);
+	mBufValue[mBufIt].copyTo(mProbVal);
 	mBufGrad[mBufIt].copyTo(mProbBin);
 
 	for (size_t i = 1; i< (size_t)mBUF_SIZE; i++ )
 	{
 		int it = (i+mBufIt)%mBUF_SIZE;
-		mMask = bufVal < mBufValue[it];
-		mBufValue[it].copyTo(bufVal, mMask );
+		mMask = mProbVal < mBufValue[it];
+		mBufValue[it].copyTo(mProbVal, mMask );
 		mBufGrad[it].copyTo(mProbBin, mMask );
 	}
 
 	Mat filteredDbg;
-	bufVal.copyTo(filteredDbg);
+	mProbVal.copyTo(filteredDbg);
     cvtColor(filteredDbg, filteredDbg, COLOR_GRAY2BGR);
 
-	if (debugY == 0) debugY = 180;
 
-	int y = cL[0].y - debugY;
+	int y = cL[1].y - debugY;
 	int rangeX = 60;
 
 	int dL = (cL[1].x - cL[0].x)/(cL[0].y - cL[1].y) * debugY;
 	int dR = (cR[1].x - cR[0].x)/(cR[0].y - cR[1].y) * debugY;
 
-	cL.pop_back();
-	cR.pop_back();
+	//cL.pop_back();
+	//cR.pop_back();
 
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < 4; i++)
 	{
 		Point lL = cL[cL.size()-1];
 		Point lR = cR[cR.size()-1];
@@ -370,6 +357,9 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 		float histL[200];
 		float histR[200];
 
+		float histLs[200];
+		float histRs[200];
+
 		int hstRange = 40;
 
 		Point lh1(-hstRange+lL.x, lL.y - debugY);
@@ -378,16 +368,15 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 		Point rh1(-hstRange+lR.x, lR.y - debugY);
 		Point rh2(hstRange+lR.x, lR.y);
 
-		calcHistogram(lh1, lh2, bufVal, mProbBin, histL);
-		calcHistogram(rh1, rh2, bufVal, mProbBin, histR);
+		calcHistogram(lh1, lh2, mProbVal, mProbBin, histL);
+		calcHistogram(rh1, rh2, mProbVal, mProbBin, histR);
+
 		line(filteredDbg, lh1, Point(lh1.x, lh2.y), CvScalar(0, 0, 127), 2);
 		line(filteredDbg, lh2, Point(lh2.x, lh1.y), CvScalar(0, 0, 127), 2);
-
 		line(filteredDbg, rh1, Point(rh1.x, rh2.y), CvScalar(0, 0, 127), 2);
 		line(filteredDbg, rh2, Point(rh2.x, rh1.y), CvScalar(0, 0, 127), 2);
 
-		float histLs[200];
-		float histRs[200];
+
 
 		for (int i =0; i < 200; i++)
 		{
@@ -397,11 +386,13 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 
 		for (int i = 20; i < histRange*2-20; i++)
 		{
-			for (int j = -2; j <= 2; j++)
+			for (int j = -1; j <= 1; j++)
 			{
 				histLs[i] += histL[i+j];
 				histRs[i] += histR[i+j];
 			}
+			histLs[i] += histL[i];
+			histRs[i] += histR[i];
 		}
 
 		for (int j = -rangeX; j <= rangeX; j++)
@@ -409,9 +400,22 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 			float l = 0;
 			float r = 0;
 
-			scoreL[j+rangeX] = l = histLs[j+histRange];
-			scoreR[j+rangeX] = r = histRs[j+histRange];
+			if (debugZ == 1)
+			{
+				l = histLs[j+histRange];
+				r = histRs[j+histRange];
+			}
+			else if (debugZ == 2)
+			{
+				for (int shift = -1; shift < 1; shift++)
+				{
+					l += calcScore(mProbVal, Point(lL.x - shift, lL.y), Point(lL.x - shift + j, lL.y - debugY));
+					r += calcScore(mProbVal, Point(lR.x + shift, lR.y), Point(lR.x + shift + j, lR.y - debugY));
+				}
+			}
 
+			scoreL[j+rangeX] = l;
+			scoreR[j+rangeX] = r;
 
 			if (maxL < l) maxL = l;
 			if (maxR < r) maxR = r;
@@ -442,10 +446,8 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 			{
 				float score = scoreL[iL + rangeX] * scoreR[iR + rangeX];
 
-
 				float centerChangeCm = abs((iR + iL) - (dR + dL))/pixelsPerCm/2;
 				float widthChangeCm  = abs(iR - iL)/pixelsPerCm;
-
 
 				float coef1 = 1.0 - centerChangeCm / (centerChangeCm + 50.0);
 				float coef2 = 1.0 - widthChangeCm / (widthChangeCm + 40.0);
@@ -459,7 +461,6 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 					newdL = iL;
 					newdR = iR;
 				}
-
 			}
 		}
 

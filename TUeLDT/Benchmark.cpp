@@ -91,8 +91,8 @@ vector<cv::Point> Benchmark::generateHSamplesPoints(vector<cv::Point2f>& in, int
 		}
 
 		cv::Point2f vec(in[i-1] - in[i]);
-		cv::Point pos(in[i]);
-		pos.x += ((float)(in[i-1].x - in[i].x)) * (ypos - in[i].y) / (in[i-1].y - in[i].y) + 0.5;
+		cv::Point2f pos(in[i]);
+		pos.x += ((float)(in[i-1].x - in[i].x)) * (ypos - in[i].y) / (in[i-1].y - in[i].y);
 		if (pos.x < 0) pos.x = -2;
 		if (pos.x > (mConfig.cam_res_h - 1)) pos.x = -2;
 		pos.y = ypos;
