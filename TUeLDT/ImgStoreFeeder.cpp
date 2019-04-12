@@ -121,7 +121,7 @@ void ImgStoreFeeder::parseSettings(string& srcStr)
 
 	glob(mFolder, mFiles);
 
-	Helpers::sortFileNames(mFiles);
+	sort(mFiles.begin(), mFiles.end());
 
 	if (mFiles.size() <= (uint32_t)mSkipFrames)
 	{

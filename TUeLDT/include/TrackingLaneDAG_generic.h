@@ -123,6 +123,7 @@ public:
 	void trackCurves2(cv::Mat& map);
 	void createProbabilityMap(cv::Mat input);
 	void calcHistogram(cv::Point2f from, cv::Point2f to, cv::Mat pVal, cv::Mat pGrad, float* hist);
+	float calcGradScore(cv::Point2f from, cv::Point2f to);
 	cv::Mat createHistogram(cv::Mat input);
 
 };

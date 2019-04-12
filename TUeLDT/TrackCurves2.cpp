@@ -50,6 +50,71 @@ void TrackingLaneDAG_generic::calcHistogram(cv::Point2f from, cv::Point2f to, cv
 	hist[histRange] += 0.00001;
 }
 
+
+float TrackingLaneDAG_generic::calcGradScore(cv::Point2f a, cv::Point2f b)
+{
+	if (a == b) return 0;
+	int dirx = 0;
+	int diry = 0;
+
+	int counter = 0;
+	float slope = (float)(b.y - a.y) / (b.x - a.x);
+
+	if (abs(slope) < 1)
+	{
+		dirx = 1;
+		if (a.x > b.x)
+		{
+			swap(a, b);
+		}
+	}
+	else
+	{
+		diry = 1;
+		if (a.y > b.y)
+		{
+			swap(a, b);
+		}
+		slope = 1 / slope;
+	}
+
+	int from = dirx * a.x + diry * a.y;
+	int to   = dirx * b.x + diry * b.y;
+
+	float p = diry * a.x + dirx * a.y;
+	int ret = 0;
+
+	int tab[256];
+	for (int i = 0; i < 256; i++) tab[i] = 0;
+
+	float myBin = (float)(a.x - b.x + b.y - a.y) / (b.y - a.y) * histRange;
+	//cout << myBin << endl;
+	float res = 0;
+
+	for (int i = from; i <= to; i++, p+=slope, counter++)
+	{
+		int j = p;
+		int px = dirx * i + diry * j;
+		int py = dirx * j + diry * i;
+		int val = (int)mProbVal.at<unsigned char>(py, px);
+		int bin = (int)mProbBin.at<short int>(py, px);
+
+		float coef = 1 - (float)abs(bin - myBin) / (abs(bin - myBin) + 10);
+
+		//cout << bin << "\t" << val << "\t" << coef <<  endl;
+		res += coef * val;
+	}
+
+	return res / counter;
+
+
+
+
+
+}
+
+
+
 float calcScore(cv::Mat img, cv::Point2f a, cv::Point2f b)
 {
 	if (a == b) return 0;
@@ -471,6 +536,12 @@ void TrackingLaneDAG_generic::trackCurves2(cv::Mat& input)
 		cR.push_back(Point2f(lR.x + dR, y));
 		y -= debugY;
 	}
+
+for (int shift = -20; shift < 20; shift++)
+{
+	//cout << shift << "\t" << calcGradScore(cL[cL.size()-2]+Point2f(shift, 0), cL[cL.size()-1]+Point2f(shift, 0)) << "\n";
+}
+
 
 	drawPointsX(filteredDbg, cL);
 	drawPointsX(filteredDbg, cR);

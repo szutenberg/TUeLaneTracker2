@@ -35,8 +35,7 @@ mPtrLaneModel(nullptr)
 
 	cv::String pathImg = path;
 	glob(pathImg, mImgPaths, 1);
-
-	Helpers::sortFileNames(mImgPaths);
+	sort(mImgPaths.begin(), mImgPaths.end());
 
 	size_t pos = mImgPaths[0].rfind('/');
 	assert(pos != cv::String::npos);
@@ -164,7 +163,7 @@ int DeepBenchmark::run()
 
 			if (debugX == 0) mPtrFrameRenderer->drawLane(display, *mPtrLaneModel);
 
-			printf("{\"lanesA\": [");
+			printf("{\"lanes\": [");
 
 			if (mPtrLaneModel->benchL.size() == h_samples.size())
 			{
@@ -213,7 +212,8 @@ int DeepBenchmark::run()
 				if (i) printf(", ");
 				printf("%d", h_samples[i]);
 			}
-			printf("], \"raw_file\": \"%s\"}\n", mImgPaths[i].c_str());
+			cv::String name = mImgPaths[i].substr(mImgPaths[i].rfind('/')+1);
+			printf("], \"raw_file\": \"%s\"}\n", name.c_str());
 
 	    }
 	    if (debugX == 0) cvWaitKey(100000);
