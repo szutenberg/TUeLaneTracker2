@@ -117,6 +117,10 @@ void StreamFeeder::captureThread()
 
 }
 
+string StreamFeeder::getFrameInfo(int i)
+{
+	return mUri;
+}
 
 void StreamFeeder::enqueue(cv::UMat& frame, vector<cv::UMat>& queue)
 {

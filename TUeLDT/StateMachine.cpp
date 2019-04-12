@@ -42,7 +42,9 @@ StateMachine::StateMachine(unique_ptr<FrameFeeder> frameFeeder, const LaneTracke
    mPtrLaneFilter(nullptr),
    mPtrVanishingPtFilter(nullptr),
    mPtrTemplates(nullptr),
-   mPtrLaneModel(nullptr)
+   mPtrLaneModel(nullptr),
+   mJson(nullptr),
+   mFrameIt(0)
 {
 
 	#ifdef S32V2XX
@@ -97,6 +99,8 @@ int StateMachine::spin()
    	   mPtrBufferingState.reset(nullptr);
    	   mPtrTrackingState.reset(nullptr);
 	   mPtrLaneModel = nullptr;
+	   mJson = nullptr;
+	   mFrameIt = 0;
 
 	   mPtrFrameFeeder->Paused.store(true);
 	   mCurrentState = States::BOOTING;
@@ -117,6 +121,7 @@ int StateMachine::spin()
 	   	    mPtrLaneFilter.reset(nullptr);
 	   	    mPtrVanishingPtFilter.reset(nullptr);
 	   	    mPtrTemplates.reset(nullptr);
+	   	    mJson = new JsonOutput();
 
 	   	    mPtrLaneFilter 	        = mPtrBootingState->createLaneFilter();
 	   	    mPtrVanishingPtFilter       = mPtrBootingState->createVanishingPtFilter();
@@ -240,8 +245,19 @@ int StateMachine::spin()
 		  {
 		       mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
 
+		       UMat displayFrame = mPtrFrameFeeder->dequeueDisplay();
 		       if(mConfig.display_graphics)
-		        mPtrFrameRenderer->drawLane(mPtrFrameFeeder->dequeueDisplay(), *mPtrLaneModel);
+		       {
+		    	   mPtrFrameRenderer->drawLane(displayFrame, *mPtrLaneModel);
+		       }
+
+		       if (mConfig.print_json)
+		       {
+		    	   string name = mPtrFrameFeeder->getFrameInfo(2 + mFrameIt++); // 2 frames are for buffering FIXME
+		    	   name = name.substr(name.rfind('/')+1);
+		    	   mJson->print(displayFrame, *mPtrLaneModel, name);
+		       }
+
 		  }
 		  catch(const char* msg)
 		  {
@@ -333,6 +349,8 @@ StateMachine::~StateMachine()
    mPtrBootingState.reset(nullptr);
    mPtrBufferingState.reset(nullptr);
    mPtrTrackingState.reset(nullptr);
+   if (mJson != nullptr) delete mJson;
+   mJson = nullptr;
 
    #ifdef S32V2XX
     OAL_Deinitialize();

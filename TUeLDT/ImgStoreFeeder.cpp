@@ -68,8 +68,12 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 	  #endif
 
           if(mFrameCount+1 < mFiles.size())
-	  {
+          {
              mFrameCount ++;
+          }
+          else
+          {
+        	  break;
           }
 
           #ifdef PROFILER_ENABLED
@@ -116,7 +120,18 @@ void ImgStoreFeeder::parseSettings(string& srcStr)
    }
 
 
-    	glob(mFolder, mFiles);
+    glob(mFolder, mFiles);
+    sort(mFiles.begin(), mFiles.end());
+    for (size_t i = 0; i < mFiles.size(); i++)
+    {
+    	const int EXT_LEN = strlen(".png");
+    	cv::String extension = mFiles[i].substr(mFiles[i].length() - EXT_LEN);
+    	if (extension != ".png")
+    	{
+    		mFiles.erase(mFiles.begin() + i);
+    		i--;
+    	}
+    }
 
    if (mFiles.size() <= (uint32_t)mSkipFrames)
    {
@@ -150,7 +165,11 @@ void ImgStoreFeeder::enqueue(cv::UMat& frame, vector<cv::UMat>& queue)
 
      lLock.unlock();
   }
+}
 
+string ImgStoreFeeder::getFrameInfo(int i)
+{
+	return mFiles[i];
 }
 
 cv::UMat ImgStoreFeeder::dequeue()

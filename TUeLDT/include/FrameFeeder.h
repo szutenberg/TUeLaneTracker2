@@ -53,6 +53,7 @@ protected:
 public:
   virtual cv::UMat dequeue() = 0;
   virtual cv::UMat dequeueDisplay() = 0;
+  virtual string getFrameInfo(int i) = 0;
   virtual ~FrameFeeder()
   {
   }
@@ -74,7 +75,6 @@ private:
   int mSkipFrames;
 
   uint32_t mFrameCount;
-  vector<cv::String> mFiles;
   std::thread mAsyncGrabber;
   std::mutex mMutex;
 
@@ -85,7 +85,10 @@ public:
   ImgStoreFeeder(string sourceStr);
   cv::UMat dequeue() override;
   cv::UMat dequeueDisplay() override;
+  string getFrameInfo(int i) override;
   ~ImgStoreFeeder();
+  vector<cv::String> mFiles;
+
 };
 
 
@@ -115,6 +118,7 @@ public:
   StreamFeeder(string sourceUriStr);
   cv::UMat dequeue() override;
   cv::UMat dequeueDisplay() override;
+  string getFrameInfo(int i) override;
   ~StreamFeeder();
 };
 

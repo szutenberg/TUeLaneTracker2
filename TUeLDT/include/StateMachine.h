@@ -28,6 +28,7 @@
 #include "TrackingLaneState.h"
 #include "FrameFeeder.h"
 #include "FrameRenderer.h"
+#include "JsonOutput.h"
 
 using namespace std;
 
@@ -48,7 +49,9 @@ private:
 	unique_ptr<LaneFilter>  		mPtrLaneFilter;
 	unique_ptr<VanishingPtFilter>  		mPtrVanishingPtFilter;
 	unique_ptr<Templates> 			mPtrTemplates;
+	JsonOutput* mJson;
 	LaneModel*				mPtrLaneModel;
+	int mFrameIt;
 
 	#ifdef S32V2XX
 	 unique_ptr<InitState>						mPtrBootingState;

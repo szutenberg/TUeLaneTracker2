@@ -69,7 +69,7 @@ namespace LaneTracker
 	
 	int    buffer_count	    = 3;    	    /**<  Provide number of frames to buffer[Temporal Filtering]*/
 	bool   display_graphics = true;         /**< Renders graphics on to a HDMI display */
-
+	bool   print_json       = true;
   };
 
 }
