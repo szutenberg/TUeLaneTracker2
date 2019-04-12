@@ -99,21 +99,13 @@ int main(int argc, char* argv[]) /**
 	unique_ptr<StateMachine> lPtrStateMachine;
 	if (lReturn==0) //create StateMachine
 	{
-	  std::cout<<endl<<endl;
-	  std::cout<<"******************************"<<std::endl;
-	  std::cout<<" Press Ctrl + c to terminate."<<std::endl;
-	  std::cout<<"******************************"<<std::endl;
-
 	  try
 	  {
 	       lPtrStateMachine.reset( new StateMachine( move(lPtrFeeder), *lPtrConfig.get() ) );
 	  }
 	  catch(const char* msg)
 	  {
-		cout<<"******************************"<<endl
-		<<"Failed to create the StateMachine!"<<endl
-		<< msg <<endl
-		<<"******************************"<<endl<<endl;
+		cerr << "Failed to create the StateMachine!: " << msg << "\n";
 		lReturn =-1;
 	  }
 	  catch(...)
@@ -126,7 +118,7 @@ int main(int argc, char* argv[]) /**
 	States lPreviousState;
 	if (lReturn ==0) //Get current State of the stateMachine
 	{
-	  cout<<lPtrStateMachine->getCurrentState();
+//	  cout<<lPtrStateMachine->getCurrentState();
 	  lPreviousState = lPtrStateMachine->getCurrentState();
 	}
 
@@ -152,26 +144,26 @@ int main(int argc, char* argv[]) /**
 
 	     if(lPreviousState != stateMachine.getCurrentState())
 	     {
-	       cout<<endl<<stateMachine.getCurrentState();
-	       std::cout.flush();
+	       //cout<<endl<<stateMachine.getCurrentState();
+	       //std::cout.flush();
 	       lPreviousState = stateMachine.getCurrentState();
 	     }
 	     else if (lCyclesCount%100==0)
 	     {
-	       cout <<endl<<stateMachine.getCurrentState();
+/*	       cout <<endl<<stateMachine.getCurrentState();
 	       cout <<"state cycle-count = " << lCyclesCount<<"    Cycle-Time [Min, Avg, Max] : "
 	       <<"[ "<<lProfiler.getMinTime("StateMachine_Cycle")<<" "
 	       <<lProfiler.getAvgTime("StateMachine_Cycle")<<" "
 	       <<lProfiler.getMaxTime("StateMachine_Cycle")<<" "
-	       <<" ]";
+	       <<" ]";*/
 	     }
 
 	   }// End spinning
     }
 
     lPtrStateMachine.reset( nullptr);
-	cout<<endl<<"The program ended with exit code " <<lReturn<<endl;
-	return(lReturn);
+	cerr << "The program ended with exit code " <<lReturn<<endl;
+	return lReturn;
 }
 
 
@@ -198,18 +190,12 @@ unique_ptr<FrameFeeder> createFrameFeeder(FrameSource srcMode, string srcString)
 	}
 	catch(const char* msg)
 	{
-	    cout<<"******************************"<<endl
-	    <<"Failed to create the FrameFeeder!"<<endl
-	    << msg <<endl
-	    <<"******************************"<<endl<<endl;
+	    cerr << "Failed to create the FrameFeeder!: " << msg << "\n";
 	    lPtrFeeder = nullptr;
 	}
 	catch (...)
 	{
-	    cout<<"******************************"<<endl
-	    <<"Failed to create the FrameFeeder!"<<endl
-	    << "Unknown exception"<<endl
-	    <<"******************************"<<endl<<endl;
+	    cerr << "Failed to create the FrameFeeder!: unknown exception\n";
 	   lPtrFeeder = nullptr;
 	}
 

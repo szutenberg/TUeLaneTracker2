@@ -135,7 +135,7 @@ int StateMachine::spin()
 		     <<"****************************************"<<endl<<endl;
 		   #endif
 	
-		   cout<< "Completed!"<<endl;
+//		   cout<< "Completed!"<<endl;
 		   mCurrentState 	= States::BUFFERING;	   
 		}
 		else
@@ -200,7 +200,7 @@ int StateMachine::spin()
 		   #endif
 
 		   mCurrentState = States::DETECTING_LANES; 
-		   cout<<"Completed!"<<endl;
+//		   cout<<"Completed!"<<endl;
 		}
 		if( mPtrBufferingState->currentStatus == StateStatus::ERROR)
 		{
