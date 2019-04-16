@@ -49,8 +49,8 @@ private:
 	unique_ptr<LaneFilter>  		mPtrLaneFilter;
 	unique_ptr<VanishingPtFilter>  		mPtrVanishingPtFilter;
 	unique_ptr<Templates> 			mPtrTemplates;
-	JsonOutput* mJson;
 	LaneModel*				mPtrLaneModel;
+	JsonOutput* mJson;
 	int mFrameIt;
 
 	#ifdef S32V2XX
