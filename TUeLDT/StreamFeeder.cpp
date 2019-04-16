@@ -226,7 +226,7 @@ cv::UMat StreamFeeder::dequeueDisplay()
     }
     if(mDisplayQueue.empty())
     {
-      cout<<"No images in the display queue, the producer is too slow or down! [Empty Frame Queue] "<<endl;
+      cerr<<"No images in the display queue, the producer is too slow or down! [Empty Frame Queue]\n";
       throw "No images in the display queue, the producer is too slow or down! [Empty Frame Queue] ";
     }
 
