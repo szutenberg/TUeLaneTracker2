@@ -23,7 +23,7 @@ public:
 
 private:
 	vector<int> mLines;
-
+	float extractLine(int line, const vector<Point2f>* vec);
 };
 
 #endif /* TUELDT_JSONOUTPUT_H_ */
