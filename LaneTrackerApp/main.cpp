@@ -2,6 +2,7 @@
 #include "FrameFeeder.h"
 #include "StateMachine.h"
 #include "boost/program_options.hpp"
+#include "readConfig.h"
 
 using namespace std;
 namespace po = boost::program_options;
@@ -22,6 +23,7 @@ int main(int argc, char* argv[]) /**
 
 	FrameSource 	lFrameSource;
 	std::string 	lSourceStr;
+	string lConfigFileName;
 
 
 
@@ -39,7 +41,14 @@ int main(int argc, char* argv[]) /**
 
 	  ("Source,s",
 			po::value<string>(&lSourceStr)->default_value("DataSet"),
-			"\t provides source configuration");
+			"\t provides source configuration")
+
+	  ("Config,c", po::value<string>(&lConfigFileName)->default_value(""),
+			"\t yaml configuration file");
+
+
+
+			;
 
 	  po::variables_map vMap;
 	  po::store(po::parse_command_line(argc, argv, lDesc), vMap);
@@ -54,7 +63,7 @@ int main(int argc, char* argv[]) /**
 	     cout <<FrameSource::GMSL<<"]";
 
 	     cout <<endl<<endl<< "	Examples:"<<endl;
-	     cout<< "	./TUeLaneTracker -m " << FrameSource::DIRECTORY << " -s " << "/home/DataSet" <<endl;
+	     cout<< "	./TUeLaneTracker -m " << FrameSource::DIRECTORY << " -s " << "/home/DataSet -c Config.yaml \n";
 	     cout<<endl<<endl;
 	     lReturn = 1;
 	  }
@@ -73,6 +82,10 @@ int main(int argc, char* argv[]) /**
 	  }
 	}
 
+	if ((lReturn == 0) && (!lConfigFileName.empty()))
+	{
+		lReturn = readConfig(lConfigFileName, lPtrConfig.get());
+	}
 
 	unique_ptr<FrameFeeder> lPtrFeeder;
 	if (lReturn == 0) //create FrameFeeder
