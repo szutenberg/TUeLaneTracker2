@@ -44,7 +44,8 @@ StateMachine::StateMachine(unique_ptr<FrameFeeder> frameFeeder, const LaneTracke
    mPtrTemplates(nullptr),
    mPtrLaneModel(nullptr),
    mJson(nullptr),
-   mFrameIt(0)
+   mFrameIt(0),
+   mCurveDetector(nullptr)
 {
 
 	#ifdef S32V2XX
@@ -101,6 +102,7 @@ int StateMachine::spin()
 	   mPtrLaneModel = nullptr;
 	   mJson = nullptr;
 	   mFrameIt = 0;
+	   mCurveDetector = nullptr;
 
 	   mPtrFrameFeeder->Paused.store(true);
 	   mCurrentState = States::BOOTING;
@@ -122,6 +124,7 @@ int StateMachine::spin()
 	   	    mPtrVanishingPtFilter.reset(nullptr);
 	   	    mPtrTemplates.reset(nullptr);
 	   	    mJson = new JsonOutput();
+	   	    mCurveDetector = new CurveDetector(&mConfig);
 
 	   	    mPtrLaneFilter 	        = mPtrBootingState->createLaneFilter();
 	   	    mPtrVanishingPtFilter       = mPtrBootingState->createVanishingPtFilter();
@@ -243,7 +246,10 @@ int StateMachine::spin()
 		{
 		  try
 		  {
-		       mPtrLaneModel = mPtrTrackingState->run(mPtrFrameFeeder->dequeue());
+               UMat inputFrame = mPtrFrameFeeder->dequeue();
+		       mPtrLaneModel = mPtrTrackingState->run(inputFrame);
+
+		       if (mConfig.curve_detector) mCurveDetector->run(inputFrame, mPtrLaneModel);
 
 		       UMat displayFrame = mPtrFrameFeeder->dequeueDisplay();
 		       if(mConfig.display_graphics)
@@ -351,6 +357,8 @@ StateMachine::~StateMachine()
    mPtrTrackingState.reset(nullptr);
    if (mJson != nullptr) delete mJson;
    mJson = nullptr;
+   if (mCurveDetector != nullptr) delete mCurveDetector;
+   mCurveDetector = nullptr;
 
    #ifdef S32V2XX
     OAL_Deinitialize();

@@ -29,6 +29,7 @@
 #include "FrameFeeder.h"
 #include "FrameRenderer.h"
 #include "JsonOutput.h"
+#include "CurveDetector.h"
 
 using namespace std;
 
@@ -52,6 +53,7 @@ private:
 	LaneModel*				mPtrLaneModel;
 	JsonOutput* mJson;
 	int mFrameIt;
+	CurveDetector* mCurveDetector;
 
 	#ifdef S32V2XX
 	 unique_ptr<InitState>						mPtrBootingState;

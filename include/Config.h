@@ -22,7 +22,7 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 * ****************************************************************************/
 
-#define PROFILER_ENABLED		/**< If defined, the program logs and profiles its execution*/
+//#define PROFILER_ENABLED		/**< If defined, the program logs and profiles its execution*/
 //#define WRITE_FRAMES_TO_FILE  /**< If defined, the output is saved to a video file */
 
 namespace LaneTracker
@@ -70,6 +70,7 @@ namespace LaneTracker
 	int    buffer_count	    = 3;    	    /**<  Provide number of frames to buffer[Temporal Filtering]*/
 	bool   display_graphics = true;         /**< Renders graphics on to a HDMI display */
 	bool   print_json       = true;
+	int    curve_detector   = 0;
   };
 
 }

@@ -55,6 +55,9 @@ public:
 	vector<float> 	boundaryLeft_cm;	/*< Selected,max-poseterior, distance to left boundary at base in Image-Center-CS [pixel] */
 	vector<float> 	boundaryRight_cm;  	/*< Selected,max-posterior, distance to left boundary at base in Image-Center-CS [pixel]  */
 
+	vector<cv::Point2f> curveL; /*< calculated by CurveDetector */
+	vector<cv::Point2f> curveR; /*< calculated by CurveDetector */
+
 
 	VanishingPt 	vanishingPt; 		/*< Selected, according to max-posterior, VanishingPoint in Image-Center-CS [pixel] */
 
