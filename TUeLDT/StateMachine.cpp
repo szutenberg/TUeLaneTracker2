@@ -124,11 +124,13 @@ int StateMachine::spin()
 	   	    mPtrVanishingPtFilter.reset(nullptr);
 	   	    mPtrTemplates.reset(nullptr);
 	   	    mJson = new JsonOutput();
-	   	    mCurveDetector = new CurveDetector(&mConfig);
 
 	   	    mPtrLaneFilter 	        = mPtrBootingState->createLaneFilter();
 	   	    mPtrVanishingPtFilter       = mPtrBootingState->createVanishingPtFilter();
 	   	    mPtrTemplates 	        = mPtrBootingState->createTemplates();
+
+	   	    mCurveDetector = new CurveDetector(&mConfig, mPtrLaneFilter.get(), mPtrVanishingPtFilter.get(), mPtrTemplates.get());
+
 		}
 		if (mPtrBootingState->currentStatus == StateStatus::DONE)
 		{				
@@ -261,7 +263,7 @@ int StateMachine::spin()
 		       {
 		    	   string name = mPtrFrameFeeder->getFrameInfo(2 + mFrameIt++); // 2 frames are for buffering FIXME
 		    	   name = name.substr(name.rfind('/')+1);
-		    	   mJson->print(displayFrame, *mPtrLaneModel, name);
+		    	   mJson->print(inputFrame, *mPtrLaneModel, name);
 		       }
 
 		  }

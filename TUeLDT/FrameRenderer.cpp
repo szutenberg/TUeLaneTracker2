@@ -43,6 +43,25 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane)
    line(FRAME, Point(0, VP_V), Point(FRAME.cols, VP_V), cv::Scalar(0,0,255), 1);
    line(FRAME, Point(VP_H, 0), Point(VP_H, VP_V), cv::Scalar(0,0,255), 1);
 
+   assert(Lane.curveL.size() == Lane.curveR.size());
+   for (size_t i = 1; i < Lane.curveL.size(); i++)
+   {
+	   line(FRAME, Lane.curveL[i-1], Lane.curveL[i], CvScalar(0,170,0),2);
+	   line(FRAME, Lane.curveR[i-1], Lane.curveR[i], CvScalar(0,170,0),2);
+	   line(FRAME, Point2f(0.5 * (Lane.curveR[i-1].x + Lane.curveL[i-1].x),  Lane.curveL[i-1].y),
+			   Point2f(0.5 * (Lane.curveR[i].x + Lane.curveL[i].x),  Lane.curveL[i].y),  CvScalar(170,170,0),2);
+
+   }
+
+   for (size_t i = 1; i < Lane.curveR.size(); i++)
+   {
+	   line(FRAME, Lane.curveR[i-1], Lane.curveR[i], CvScalar(0,170,0),2);
+   }
+
+   for (size_t i = 1; i < Lane.curveR.size(); i++)
+   {
+	   line(FRAME, Lane.curveR[i-1], Lane.curveR[i], CvScalar(0,170,0),2);
+   }
 
    //Lane Bundaries
    lBoundaryPts_L.push_back( Point( Lane.boundaryLeft[0]  + mO_ICCS_ICS.x, mBASE_LINE_ICS) );
