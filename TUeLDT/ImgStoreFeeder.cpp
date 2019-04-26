@@ -22,7 +22,7 @@
 
 ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 : mQueuesSync(true),
-  mMAX_BUFFER_SIZE(2),
+  mMAX_BUFFER_SIZE(5),
   mMAX_RETRY(100), 		// Main thread sleeps for 1ms and then retry to grab.
   mSLEEP_ms(10),  		// Sleep time for the mAsyncGrabber
   mFolder(""),
@@ -53,7 +53,6 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
              cv::cvtColor(lFrame, lFrameGRAY, CV_RGB2GRAY);
 	   }
           lLock.unlock();
-
 	  //Put the frames in the queue for the stateMachine
           enqueue(lFrameGRAY, mProcessQueue); //Thread-safe method to enqueue processing Frames
           enqueue(lFrame,     mDisplayQueue); //Thread-safe method to enqueue display Frames
@@ -66,13 +65,13 @@ ImgStoreFeeder::ImgStoreFeeder(string sourceStr)
 	   << mFrameCount<<"/"<<mFiles.size()<<endl
            <<"******************************"<<endl<<endl;
 	  #endif
-
           if(mFrameCount+1 < mFiles.size())
           {
              mFrameCount ++;
           }
           else
           {
+              mFrameCount ++;
         	  break;
           }
 
@@ -146,6 +145,11 @@ void ImgStoreFeeder::enqueue(cv::UMat& frame, vector<cv::UMat>& queue)
 
    if(!frame.empty())
    {
+
+	  while (queue.size() >=  mMAX_BUFFER_SIZE)
+	      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+
       lLock.lock(); //Protect queue from race-condition
 
       queue.push_back(frame);
@@ -153,6 +157,7 @@ void ImgStoreFeeder::enqueue(cv::UMat& frame, vector<cv::UMat>& queue)
       if(queue.size() >  mMAX_BUFFER_SIZE)
       {
          queue.erase(queue.begin());
+         cerr << "Dropping frames in the queue, cannot keep-up with the frame production rate!\n";
 
          #ifdef PROFILER_ENABLED
           LOG_INFO_(LDTLog::STATE_MACHINE_LOG) <<endl
@@ -183,7 +188,7 @@ cv::UMat ImgStoreFeeder::dequeue()
    size_t lTryGrab = 0;
 
    lLock.lock(); //Protect queue from any race-condition
-   while (mProcessQueue.empty() && lTryGrab < mMAX_RETRY)
+   while (mProcessQueue.empty() && lTryGrab < mMAX_RETRY && ((mFrameCount) < mFiles.size()))
    {
       lLock.unlock();
       lTryGrab ++ ;
@@ -232,11 +237,11 @@ cv::UMat ImgStoreFeeder::dequeueDisplay()
    size_t lTryGrab = 0;
 
    lLock.lock(); //Protect queue from race-condition
-   while (mDisplayQueue.empty() && lTryGrab < mMAX_RETRY)
+   while (mDisplayQueue.empty() && lTryGrab < mMAX_RETRY && ((mFrameCount) < mFiles.size()))
    {
       lLock.unlock();
       lTryGrab ++ ;
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       lLock.lock();
    }
    if(mDisplayQueue.empty())
