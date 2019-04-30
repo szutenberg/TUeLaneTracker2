@@ -37,7 +37,7 @@ void CurveDetector::prepareROI(cv::UMat input, cv::UMat& output)
 	assert((mROIy + span) == input.rows);
 	cv::Rect lROI = cv::Rect(0, mROIy, mCfg->cam_res_h, span);
 	input(lROI).copyTo(output);
-	cerr << "ROI height = " << output.rows << "\n";
+	//cerr << "ROI height = " << output.rows << "\n";
 }
 
 
@@ -45,7 +45,7 @@ void CurveDetector::blur(cv::UMat input, cv::UMat& output)
 {
 	//input.copyTo(output);
 
-	GaussianBlur(input, output, cv::Size(3,3), 2, 2);
+	GaussianBlur(input, output, cv::Size(3,3), 3, 3);
 }
 
 int CurveDetector::TIPPING_POINT_GRAY = 200;
@@ -97,10 +97,17 @@ void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outp
 	Sobel( input, mGradX, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
 	Sobel( input, mGradY, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
 
+	for (int i = 1; i < segmentsToRemove.size(); i++)
+	{
+		line(mGradY, segmentsToRemove[i-1], segmentsToRemove[i], cv::Scalar(0), 8);
+		line(mGradX, segmentsToRemove[i-1], segmentsToRemove[i], cv::Scalar(0), 8);
+
+	}
+
     mMask = mGradX ==0;
     mGradX.setTo(1, mMask);
 
-	divide(mGradY, mGradX, mAngMap, 256, CV_16S);
+	divide(mGradY, mGradX, mAngMap, 128, CV_16S);
 
 
 	//convert to absolute scale and add weighted absolute gradients
@@ -129,8 +136,8 @@ void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outp
 
 
 
-const int BIRD_WIDTH = 400;
-const int BIRD_HEIGHT = 900;
+const int BIRD_WIDTH = 250;
+const int BIRD_HEIGHT = 500;
 
 void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 {
@@ -172,8 +179,20 @@ void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 	tmp.push_back(l1);
 	tmp.push_back(r2);
 	tmp.push_back(l2);
+	tmp.push_back(Point(0, defaultVp.y + 50));
+	tmp.push_back(Point(0, roi.rows));
+	tmp.push_back(Point(roi.cols, roi.rows));
+	tmp.push_back(Point(roi.cols, defaultVp.y + 50));
+
 	mBird.convertPointsToBird(tmp, tmp2);
-	assert(tmp2.size() == 4);
+	assert(tmp2.size() == 8);
+
+	segmentsToRemove.clear();
+	segmentsToRemove.push_back(tmp2[4]);
+	segmentsToRemove.push_back(tmp2[5]);
+	segmentsToRemove.push_back(tmp2[6]);
+	segmentsToRemove.push_back(tmp2[7]);
+
 	birdRightStart = tmp2[0];
 	birdLeftStart = tmp2[1];
 
@@ -181,9 +200,9 @@ void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 	leftB = -(tmp2[1].x - tmp2[3].x) / (tmp2[1].y - tmp2[3].y);
 
 
-	cerr << tmp2[0] << tmp2[2] << leftB << "\t" << rightB << endl;
+	//cerr << tmp2[0] << tmp2[2] << leftB << "\t" << rightB << endl;
 
-	cerr << r1 << l1 << endl;
+	//cerr << r1 << l1 << endl;
 }
 
 
@@ -242,7 +261,6 @@ float score(vector<int> & from, vector<int> & to, vector<int> & fromD, vector<in
 			angleProbability *= 100.0;
 			ret += val * angleProbability;
 
-
 			cnt ++;
 
 		}
@@ -251,7 +269,211 @@ float score(vector<int> & from, vector<int> & to, vector<int> & fromD, vector<in
 	return (float)ret/cnt;
 }
 
+Mat tmp;
+Mat ddd;
+double maxA, maxB;
 
+
+int RANGE_FROM = -100;
+int RANGE_TO = 100;
+int RANGE_N = RANGE_TO - RANGE_FROM;
+int STRIPES_AMOUNT = 5;
+int STRIP_H = BIRD_HEIGHT/STRIPES_AMOUNT;
+int CHART_H = 100;
+
+
+float score2(Mat img, Mat ang, double a)
+{
+	ang.copyTo(tmp);
+	img.copyTo(ddd);
+
+	Mat mask;
+	STRIP_H = img.rows/STRIPES_AMOUNT;
+	Mat plot = Mat::zeros(STRIPES_AMOUNT*CHART_H, 800, CV_8U);
+
+	double vals[STRIPES_AMOUNT][RANGE_TO - RANGE_FROM + 1];
+	double maxV[STRIPES_AMOUNT];
+	double valNorm[STRIPES_AMOUNT][RANGE_TO - RANGE_FROM + 1];
+
+	for (int stripe = 0; stripe < STRIPES_AMOUNT; stripe++)
+	{
+		maxV[stripe] = 0;
+		 cv::Rect lROI;
+
+		 //Define ROI from the Input Image
+		 lROI = cv::Rect(0, STRIP_H*stripe, img.cols, STRIP_H);
+		 img(lROI).copyTo(ddd);
+
+		for (int i = RANGE_FROM; i < RANGE_TO; i++)
+		{
+			img(lROI).copyTo(ddd);
+
+			mask = ang(lROI) != i;
+			ddd.setTo(0, mask);
+			//bitwise_and(img, img, ddd, mask);
+			double val = cv::sum( ddd )[0];
+			vals[stripe][i-RANGE_FROM] = val;
+			if (maxV[stripe] < val) maxV[stripe] = val;
+		}
+	}
+
+
+	for (int s = 0; s < STRIPES_AMOUNT; s++)
+	{
+		maxV[s] = 0;
+		for (int i = RANGE_FROM; i < RANGE_TO; i++) valNorm[s][i-RANGE_FROM] = 0;
+
+		for (int i = RANGE_FROM + 4; i < RANGE_TO-4; i++)
+		{
+			double val = 0.5 * vals[s][i-RANGE_FROM-2] + vals[s][i-RANGE_FROM-1] + 2.0 * vals[s][i-RANGE_FROM] + vals[s][i-RANGE_FROM+1] + 0.5 * vals[s][i-RANGE_FROM+2];
+			//val += vals[s][i-RANGE_FROM-3] + vals[s][i-RANGE_FROM+3];
+			//val += vals[s][i-RANGE_FROM-4] + vals[s][i-RANGE_FROM+4];
+
+			valNorm[s][i-RANGE_FROM] = val;
+			if (maxV[s] < val) maxV[s] = val;
+		}
+	}
+
+
+
+
+	for (int s = 0; s < STRIPES_AMOUNT; s++)
+	{
+		cerr << "Max : " << s << " " << maxV[s] << endl;
+		for (int i = RANGE_FROM; i < RANGE_TO; i++) valNorm[s][i-RANGE_FROM] /= maxV[s];
+	}
+
+	line(plot, Point(-RANGE_FROM, plot.rows ), Point(-RANGE_FROM, 0), cv::Scalar(127));
+	double maxProb = 0;
+
+	for (int s = 0; s < STRIPES_AMOUNT; s++)
+	{
+		for (int i = RANGE_FROM; i < RANGE_TO; i++)
+		{
+			double val = valNorm[s][i-RANGE_FROM];
+			line(plot, Point(i-RANGE_FROM, CHART_H+s*CHART_H), Point(i-RANGE_FROM, CHART_H+s*CHART_H-val*CHART_H), cv::Scalar(val*255));
+		}
+	}
+
+
+	for (double a = -5; a < 5; a += 0.1)
+	{
+		int dif[STRIPES_AMOUNT];
+
+		for (int s = 0; s < STRIPES_AMOUNT; s++)
+		{
+			int y = BIRD_HEIGHT - (STRIP_H * 0.5 + STRIP_H * s);
+			double val = 2.0 * 10e-5 * a * y * 128;
+			dif[s] = (int)(val + 0.5);
+			//cerr << "dif " << a << " (" << s << ")" << dif[s] << endl;
+		}
+
+		for (int b = RANGE_FROM; b < RANGE_TO; b++)
+		{
+			double prob = 1;
+
+			for (int s = 0; s < STRIPES_AMOUNT; s++)
+			{
+				int loc = dif[s]+b;
+				if ((loc > 10) && (loc < RANGE_N - 10))
+				{
+					double p = 0;
+
+					for (int i = - 2; i <=  2; i++)
+					{
+						p += valNorm[s][loc + i] * (1 - abs(i) / (abs(i) + 1));
+					}
+
+					prob *= p;
+				}
+				else
+				{
+					prob = 0;
+				}
+			}
+
+			//if (prob > 0.1) cerr << a << "\t" << b << "\t" << prob << "\n";
+			if (prob > maxProb)
+			{
+				maxProb = prob;
+				maxA = a;
+				maxB = b;
+			}
+		}
+	}
+
+	for (int s = 0; s < STRIPES_AMOUNT; s++)
+	{
+		int y = BIRD_HEIGHT - (STRIP_H * (s+1));
+		double val = 2.0 * 10e-5 * maxA * y * 128;
+		int dif = (int)(val + 0.5);
+
+		//cerr << "dif " << a << " (" << s << ")" << dif[s] << endl;
+
+		cerr << s << " " << maxA << " " << dif << endl;
+
+		//line(plot, Point(maxB-RANGE_FROM, CHART_H+s*CHART_H), Point(maxB-RANGE_FROM, CHART_H+s*CHART_H-val*CHART_H), cv::Scalar(val*255));
+		//line(plot, Point(maxB-RANGE_FROM, CHART_H+s*CHART_H), Point(maxB-RANGE_FROM, CHART_H+s*CHART_H-val*CHART_H), cv::Scalar(val*255));
+	}
+
+
+
+
+
+
+	cerr << maxA << "\t" << maxB << "\t" << maxProb << "\n";
+
+
+
+
+
+	imshow("plot", plot);
+
+
+}
+
+
+
+void CurveDetector::matchParabolaWithMap(cv::Mat mFrMag, cv::Mat mFrAng,
+		double maxA, double maxB, double values[], int N)
+{
+	for (int i = 0 ; i < N; i++) values[i] = i;
+
+	vector<int> test  = curve(maxA, maxB, birdLeftStart.x);
+
+	int s= 4;
+	for (int y = 0; y < BIRD_HEIGHT; y++)
+	{
+		double val = 2.0 * 10e-5 * maxA * y * 128;
+		cerr << y << "\t" << (int)(val + 0.5) << "\n";
+	}
+	Mat ddd;
+
+	int stripe = STRIPES_AMOUNT - 1;
+		 cv::Rect lROI;
+
+		 //Define ROI from the Input Image
+		 lROI = cv::Rect(0, STRIP_H*stripe, mFrMag.cols, STRIP_H);
+		 mFrMag(lROI).copyTo(ddd);
+
+		 Mat dst;
+		 cerr << maxB << endl;
+		 Mat mask = mFrAng(lROI) < (maxB-10);
+		 ddd.setTo(0, mask);
+		 mask = mFrAng(lROI) > (maxB+10);
+		 ddd.setTo(0, mask);
+
+
+		 reduce(ddd, dst, 0 /* single row*/, CV_REDUCE_AVG);
+
+		 vector<float> vec;
+		 dst.copyTo(vec);
+		 assert(vec.size() >= N);
+		 for (int i = 0; i < N; i++) values[i] = vec[i];
+
+
+
+}
 
 int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 {
@@ -270,6 +492,7 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 	setParams(Lane, tmp);
 	birdRaw = mBird.applyTransformation(tmp);
 	if (mCfg->display_graphics) imshow("birdRaw", birdRaw);
+	GaussianBlur(birdRaw, birdRaw, cv::Size(5, 5), 2, 2);
 	computeMap(birdRaw, mFrMag, mFrAng);
 	if (bufMag[0].rows == 0)
 	{
@@ -311,11 +534,20 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
     line(debugFrame, Point(birdRightStart + Point2f(2, 2)), Point(birdRightStart + Point2f(-2, -2)), CvScalar(255, 0, 0), 2);
     line(debugFrame, Point(birdRightStart + Point2f(-2, 2)), Point(birdRightStart + Point2f(2, -2)), CvScalar(255, 0, 0), 2);
 
+    score2(mFrMag, mFrAng, 0);
 
+
+    double values[debugFrame.cols];
+    matchParabolaWithMap(mFrMag, mFrAng, maxA, maxB, &values[0], debugFrame.cols);
+
+    for (int i = 0; i < debugFrame.cols; i++)
+    {
+		line(debugFrame, Point(i, debugFrame.rows), Point(i, debugFrame.rows - values[i]), CvScalar(0,0, 255), 2);
+    }
 
     float maxI;
     float maxScore = 0;
-	for (float i = -1; i < 1; i+=0.1)
+	for (float i = 0; i < 1; i+=10.1)
 	{
 		float MARGIN = 0.15;
 		vector<int> from, to, fromD, toD, test;
@@ -362,6 +594,11 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 			maxI = i;
 		}
 	}
+
+    maxI = maxA;
+    rightB = (maxB - 100) / 128;
+    leftB = (maxB - 100) / 128;
+    cerr << maxB << "\t" << rightB << endl;
 
 	vector<int> test  = curve(maxI, leftB, birdLeftStart.x);
 	for (int i = 1; i < test.size(); i++)

@@ -62,8 +62,12 @@ private:
 	BirdView mBird;
 
 	float leftB, rightB;
+	vector<cv::Point2f> segmentsToRemove;
 
 	cv::Mat tmp, tmp2;
+
+    void matchParabolaWithMap(cv::Mat mFrMag, cv::Mat mFrAng, double maxA, double maxB, double values[], int N);
+
 
 	static int TIPPING_POINT_GRAY;
 	static int TIPPING_POINT_GRAD_Mag;
