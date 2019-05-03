@@ -37,60 +37,11 @@ void CurveDetector::prepareROI(cv::UMat input, cv::UMat& output)
 	assert((mROIy + span) == input.rows);
 	cv::Rect lROI = cv::Rect(0, mROIy, mCfg->cam_res_h, span);
 	input(lROI).copyTo(output);
-	//cerr << "ROI height = " << output.rows << "\n";
 }
 
-
-void CurveDetector::blur(cv::UMat input, cv::UMat& output)
-{
-	//input.copyTo(output);
-
-	GaussianBlur(input, output, cv::Size(3,3), 3, 3);
-}
 
 int CurveDetector::TIPPING_POINT_GRAY = 200;
 int CurveDetector::TIPPING_POINT_GRAD_Mag = 50;
-
-/*
-void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outputAng)
-{
-	Sobel( input, mGradX, CV_16S, 1, 0, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
-	Sobel( input, mGradY, CV_16S, 0, 1, 3, 1, 0, cv::BORDER_REPLICATE | cv::BORDER_ISOLATED);
-
-    mMask = mGradX ==0;
-    mGradX.setTo(1, mMask);
-
-	divide(mGradY, mGradX, mAngMap, 256, CV_16S);
-
-
-	//convert to absolute scale and add weighted absolute gradients
-	absdiff(mGradX, cv::Scalar::all(0), mGradX_abs);
-	absdiff(mGradY, cv::Scalar::all(0), mGradY_abs);
-
-	add(mGradX_abs, mGradY_abs, tmp, noArray(), CV_8U);
-	tmp -= TIPPING_POINT_GRAD_Mag;
-	tmp.copyTo(tmp2);
-	tmp2 += 10;
-	divide(tmp, tmp2, mProbMap_GradMag, 255, CV_8U);
-
-
-	input.convertTo(tmp, CV_8U);
-	tmp -= TIPPING_POINT_GRAY;
-	tmp.copyTo(tmp2);
-	tmp2 += 10;
-	divide(tmp, tmp2, mProbMap_Gray, 255, CV_8U);
-
-	addWeighted(mProbMap_GradMag, 1, mProbMap_Gray, 0, 0, mProbVal, CV_8U);
-
-
-	mProbVal.copyTo(outputMag);
-	mAngMap.copyTo(outputAng);
-}
-
-
-*/
-
-
 
 void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outputAng)
 {
@@ -109,7 +60,6 @@ void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outp
 
 	divide(mGradY, mGradX, mAngMap, 128, CV_16S);
 
-
 	//convert to absolute scale and add weighted absolute gradients
 	absdiff(mGradX, cv::Scalar::all(0), mGradX_abs);
 	absdiff(mGradY, cv::Scalar::all(0), mGradY_abs);
@@ -120,15 +70,13 @@ void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outp
 	tmp2 += 10;
 	divide(tmp, tmp2, mProbMap_GradMag, 255, CV_8U);
 
-
 	input.convertTo(tmp, CV_8U);
 	tmp -= TIPPING_POINT_GRAY;
 	tmp.copyTo(tmp2);
 	tmp2 += 10;
 	divide(tmp, tmp2, mProbMap_Gray, 255, CV_8U);
 
-	addWeighted(mProbMap_GradMag, 1, mProbMap_Gray, 0, 0, mProbVal, CV_8U);
-
+	addWeighted(mProbMap_GradMag, 0.8, mProbMap_Gray, 0.2, 0, mProbVal, CV_8U);
 
 	mProbVal.copyTo(outputMag);
 	mAngMap.copyTo(outputAng);
@@ -136,8 +84,8 @@ void CurveDetector::computeMap(cv::Mat& input, cv::Mat& outputMag, cv::Mat& outp
 
 
 
-const int BIRD_WIDTH = 250;
-const int BIRD_HEIGHT = 500;
+const int BIRD_WIDTH = 350;
+const int BIRD_HEIGHT = 1000;
 
 void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 {
@@ -163,7 +111,6 @@ void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 
 	mBird.configureTransform2(baseL, baseR, defaultVp, BIRD_WIDTH, BIRD_HEIGHT);
 
-
 	r1.y = l1.y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - mCfg->cam_res_v + roi.rows;
 	r2.y = l2.y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - mCfg->cam_res_v  + roi.rows;
 
@@ -172,7 +119,6 @@ void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 
 	l1.x = Lane->boundaryLeft[0] + mLaneFilter->O_ICCS_ICS.x;
 	l2.x = Lane->boundaryLeft[1] + mLaneFilter->O_ICCS_ICS.x;
-
 
 	vector<Point2f> tmp, tmp2;
 	tmp.push_back(r1);
@@ -198,14 +144,22 @@ void CurveDetector::setParams(LaneModel* Lane, Mat roi)
 
 	rightB = -(tmp2[0].x - tmp2[2].x) / (tmp2[0].y - tmp2[2].y);
 	leftB = -(tmp2[1].x - tmp2[3].x) / (tmp2[1].y - tmp2[3].y);
-
-
-	//cerr << tmp2[0] << tmp2[2] << leftB << "\t" << rightB << endl;
-
-	//cerr << r1 << l1 << endl;
 }
 
 
+
+
+
+Mat tmp;
+double maxA, maxB;
+
+
+int RANGE_FROM = -100;
+int RANGE_TO = 100;
+int RANGE_N = RANGE_TO - RANGE_FROM;
+int STRIPES_AMOUNT = 5;
+int STRIP_H = BIRD_HEIGHT/STRIPES_AMOUNT;
+int CHART_H = 100;
 
 
 vector<int> curve(double a, double b, double c)
@@ -214,8 +168,8 @@ vector<int> curve(double a, double b, double c)
 
 	for (int i = 0; i < BIRD_HEIGHT; i++)
 	{
-		int y = BIRD_HEIGHT-i;
-		double val = 10e-5 * a * y * y + b * y + c;
+		double y = BIRD_HEIGHT-i;
+		double val = a * y * y + b * y + c;
 		ret.push_back((int)val);
 	}
 	return ret;
@@ -229,7 +183,7 @@ vector<int> dif(double a, double b, double c)
 	for (int i = 0; i < BIRD_HEIGHT; i++)
 	{
 		int y = BIRD_HEIGHT-i;
-		double val = 2.0 * 10e-5 * a * y +  b;
+		double val = 2.0 * 10e-5 * a * y +  b / 200;
 		val *= 256;
 		ret.push_back((int)val);
 		//cerr << "dif \t" << a << "\t" << i << "\t" << (int)val << endl;
@@ -237,263 +191,281 @@ vector<int> dif(double a, double b, double c)
 	return ret;
 }
 
-float score(vector<int> & from, vector<int> & to, vector<int> & fromD, vector<int> & toD, Mat img, Mat ang)
+void calculateHistograms(cv::Mat img, cv::Mat ang, double* vals)
 {
-	assert(from.size() == to.size());
+	Mat mask, strip;
+	cv::Rect lROI;
 
-	int ret = 0;
-	int cnt = 1;
-	for (int y = BIRD_HEIGHT/2; y < from.size(); y++)
+	for (int s = 0; s < STRIPES_AMOUNT; s++)
 	{
-		int fromX = from[y] - 20;
-		if (fromX < 0) fromX = 0;
-		int toX = to[y] + 20;
-		if (toX > img.cols-1) toX = img.cols - 1;
+		double maxV = 0.01;
+		double total = 0;
+		lROI = cv::Rect(0, STRIP_H*s, img.cols, STRIP_H);
 
-		for (int x = fromX; x <= toX; x++)
+		for (int i = RANGE_FROM; i < RANGE_TO; i++)
 		{
-			int val = (int)img.at<unsigned char>(y, x);
-			int angVal = (int)ang.at<short int>(y, x);
-			//if (val > 100) cerr << x << "\t" << y << "\t" << val << "\t" << angVal << "\t" << fromD[y] << "\t" << toD[y] << "\n";
-			//if ((fromD[y] < angVal) && (angVal < toD[y])) ret += val;
-			float dif = abs(fromD[y] - angVal);
-			float angleProbability = 1 - dif / (dif + 0.1);
-			angleProbability *= 100.0;
-			ret += val * angleProbability;
+			img(lROI).copyTo(strip);
+			mask = ang(lROI) != i;
+			strip.setTo(0, mask);
+			double val = cv::sum( strip )[0];
+			vals[s*RANGE_N + i-RANGE_FROM] = val;
+			if (maxV < val) maxV = val;
+			total += val;
+		}
 
-			cnt ++;
-
+		//cerr << "d " << s << "\t" << maxV << "\t" << total/maxV << "\n";
+		maxV += total/RANGE_N;
+		for (int i = RANGE_FROM; i < RANGE_TO; i++)
+		{
+			vals[s*RANGE_N + i-RANGE_FROM] += total/RANGE_N;
+			vals[s*RANGE_N + i-RANGE_FROM] /= maxV;
 		}
 	}
-
-	return (float)ret/cnt;
 }
 
-Mat tmp;
-Mat ddd;
-double maxA, maxB;
 
-
-int RANGE_FROM = -100;
-int RANGE_TO = 100;
-int RANGE_N = RANGE_TO - RANGE_FROM;
-int STRIPES_AMOUNT = 5;
-int STRIP_H = BIRD_HEIGHT/STRIPES_AMOUNT;
-int CHART_H = 100;
-
-
-float score2(Mat img, Mat ang, double a)
+void plotHistograms(const char * name, double* vals)
 {
-	ang.copyTo(tmp);
-	img.copyTo(ddd);
-
-	Mat mask;
-	STRIP_H = img.rows/STRIPES_AMOUNT;
-	Mat plot = Mat::zeros(STRIPES_AMOUNT*CHART_H, 800, CV_8U);
-
-	double vals[STRIPES_AMOUNT][RANGE_TO - RANGE_FROM + 1];
-	double maxV[STRIPES_AMOUNT];
-	double valNorm[STRIPES_AMOUNT][RANGE_TO - RANGE_FROM + 1];
-
-	for (int stripe = 0; stripe < STRIPES_AMOUNT; stripe++)
-	{
-		maxV[stripe] = 0;
-		 cv::Rect lROI;
-
-		 //Define ROI from the Input Image
-		 lROI = cv::Rect(0, STRIP_H*stripe, img.cols, STRIP_H);
-		 img(lROI).copyTo(ddd);
-
-		for (int i = RANGE_FROM; i < RANGE_TO; i++)
-		{
-			img(lROI).copyTo(ddd);
-
-			mask = ang(lROI) != i;
-			ddd.setTo(0, mask);
-			//bitwise_and(img, img, ddd, mask);
-			double val = cv::sum( ddd )[0];
-			vals[stripe][i-RANGE_FROM] = val;
-			if (maxV[stripe] < val) maxV[stripe] = val;
-		}
-	}
-
-
-	for (int s = 0; s < STRIPES_AMOUNT; s++)
-	{
-		maxV[s] = 0;
-		for (int i = RANGE_FROM; i < RANGE_TO; i++) valNorm[s][i-RANGE_FROM] = 0;
-
-		for (int i = RANGE_FROM + 4; i < RANGE_TO-4; i++)
-		{
-			double val = 0.5 * vals[s][i-RANGE_FROM-2] + vals[s][i-RANGE_FROM-1] + 2.0 * vals[s][i-RANGE_FROM] + vals[s][i-RANGE_FROM+1] + 0.5 * vals[s][i-RANGE_FROM+2];
-			//val += vals[s][i-RANGE_FROM-3] + vals[s][i-RANGE_FROM+3];
-			//val += vals[s][i-RANGE_FROM-4] + vals[s][i-RANGE_FROM+4];
-
-			valNorm[s][i-RANGE_FROM] = val;
-			if (maxV[s] < val) maxV[s] = val;
-		}
-	}
-
-
-
-
-	for (int s = 0; s < STRIPES_AMOUNT; s++)
-	{
-		cerr << "Max : " << s << " " << maxV[s] << endl;
-		for (int i = RANGE_FROM; i < RANGE_TO; i++) valNorm[s][i-RANGE_FROM] /= maxV[s];
-	}
-
+	Mat plot = Mat::zeros(STRIPES_AMOUNT*CHART_H, RANGE_N, CV_8U);
 	line(plot, Point(-RANGE_FROM, plot.rows ), Point(-RANGE_FROM, 0), cv::Scalar(127));
-	double maxProb = 0;
 
 	for (int s = 0; s < STRIPES_AMOUNT; s++)
 	{
 		for (int i = RANGE_FROM; i < RANGE_TO; i++)
 		{
-			double val = valNorm[s][i-RANGE_FROM];
+			double val = vals[s*RANGE_N + i-RANGE_FROM];
 			line(plot, Point(i-RANGE_FROM, CHART_H+s*CHART_H), Point(i-RANGE_FROM, CHART_H+s*CHART_H-val*CHART_H), cv::Scalar(val*255));
 		}
 	}
+	imshow(name, plot);
+}
 
 
-	for (double a = -5; a < 5; a += 0.1)
+void filterHistorgrams(double* in, double *out)
+{
+	for (int s = 0; s < STRIPES_AMOUNT; s++)
 	{
-		int dif[STRIPES_AMOUNT];
+		for (int i = RANGE_FROM; i < RANGE_TO; i++) out[s * RANGE_N + i-RANGE_FROM] = 0;
 
-		for (int s = 0; s < STRIPES_AMOUNT; s++)
+		double maxV = 0.01;
+
+		for (int i = RANGE_FROM + 4; i < RANGE_TO-4; i++)
 		{
-			int y = BIRD_HEIGHT - (STRIP_H * 0.5 + STRIP_H * s);
-			double val = 2.0 * 10e-5 * a * y * 128;
-			dif[s] = (int)(val + 0.5);
-			//cerr << "dif " << a << " (" << s << ")" << dif[s] << endl;
+			double val = 0;
+			for (int j = RANGE_FROM; j < RANGE_TO; j++)
+			{
+				val += in[s * RANGE_N + j - RANGE_FROM] * (1.0 - (double)abs(i-j)/((double)abs(i-j) + 0.1));
+			}
+
+			out[s * RANGE_N + i - RANGE_FROM] = val;
+			if (maxV < val) maxV = val;
 		}
 
-		for (int b = RANGE_FROM; b < RANGE_TO; b++)
+		for (int i = RANGE_FROM; i < RANGE_TO; i++)
 		{
-			double prob = 1;
-
-			for (int s = 0; s < STRIPES_AMOUNT; s++)
-			{
-				int loc = dif[s]+b;
-				if ((loc > 10) && (loc < RANGE_N - 10))
-				{
-					double p = 0;
-
-					for (int i = - 2; i <=  2; i++)
-					{
-						p += valNorm[s][loc + i] * (1 - abs(i) / (abs(i) + 1));
-					}
-
-					prob *= p;
-				}
-				else
-				{
-					prob = 0;
-				}
-			}
-
-			//if (prob > 0.1) cerr << a << "\t" << b << "\t" << prob << "\n";
-			if (prob > maxProb)
-			{
-				maxProb = prob;
-				maxA = a;
-				maxB = b;
-			}
+			out[s * RANGE_N + i - RANGE_FROM] /= maxV;
 		}
 	}
+}
+
+void plotArray(const char * name, double *in, int N)
+{
+	int HEIGHT = 200;
+
+	Mat plot = Mat::zeros(HEIGHT, N, CV_8U);
+
+	for (int i = 0; i < N; i++)
+	{
+		if (in[i] >= 0) line(plot, Point(i, HEIGHT), Point(i, HEIGHT - HEIGHT*in[i]), cv::Scalar(255), 1);
+		else line(plot, Point(i, HEIGHT), Point(i, HEIGHT + HEIGHT*in[i]), cv::Scalar(127), 1);
+	}
+	imshow(name, plot);
+}
+
+
+double calcHistProb(double *in, double a, double b)
+{
+	double prob = 1;
+	double minP = 1;
 
 	for (int s = 0; s < STRIPES_AMOUNT; s++)
 	{
-		int y = BIRD_HEIGHT - (STRIP_H * (s+1));
-		double val = 2.0 * 10e-5 * maxA * y * 128;
-		int dif = (int)(val + 0.5);
+		int offset = (STRIPES_AMOUNT - s - 1) * RANGE_N;
+		int index = a * (s + 0.5) * STRIP_H + b * STRIP_H - RANGE_FROM + 0.5;
+		double val = 0.1;
 
-		//cerr << "dif " << a << " (" << s << ")" << dif[s] << endl;
+		if ((index > 1) && (index < RANGE_N-1))
+		{
+			val = 0.25 * in[offset + index - 1] + 0.5 *in[offset + index] + 0.25 * in[offset + index - 1];
+		}
 
-		cerr << s << " " << maxA << " " << dif << endl;
-
-		//line(plot, Point(maxB-RANGE_FROM, CHART_H+s*CHART_H), Point(maxB-RANGE_FROM, CHART_H+s*CHART_H-val*CHART_H), cv::Scalar(val*255));
-		//line(plot, Point(maxB-RANGE_FROM, CHART_H+s*CHART_H), Point(maxB-RANGE_FROM, CHART_H+s*CHART_H-val*CHART_H), cv::Scalar(val*255));
+		prob *= val;
+		if (minP > val) minP = val;
 	}
 
+	if (minP > 0) prob /= minP;
 
-
-
-
-
-	cerr << maxA << "\t" << maxB << "\t" << maxProb << "\n";
-
-
-
-
-
-	imshow("plot", plot);
-
-
+	return prob;
 }
 
 
-
-void CurveDetector::matchParabolaWithMap(cv::Mat mFrMag, cv::Mat mFrAng,
-		double maxA, double maxB, double values[], int N)
+void findCandidates(double *in, double *params, int* amt)
 {
-	for (int i = 0 ; i < N; i++) values[i] = i;
+	*amt = 0;
 
-	vector<int> test  = curve(maxA, maxB, birdLeftStart.x);
+	double arg[2000];
+	double t[2000];
+	double t2[2000];
+	double t3[2000];
+	double t4[2000];
 
-	int s= 4;
-	for (int y = 0; y < BIRD_HEIGHT; y++)
+	int N = 0;
+
+	for (double a = -0.1; a <= 0.1; a+=0.001)
 	{
-		double val = 2.0 * 10e-5 * maxA * y * 128;
-		cerr << y << "\t" << (int)(val + 0.5) << "\n";
+		double maxProb = 0;
+		for (double b = -0.5; b < 0.5; b+=0.01)
+		{
+			double prob = calcHistProb(in, a, b);
+			if (maxProb < prob) maxProb = prob;
+		}
+		t2[N] = 0;
+		t3[N] = 0;
+		arg[N] = a;
+		t[N++] = maxProb;
 	}
-	Mat ddd;
 
-	int stripe = STRIPES_AMOUNT - 1;
-		 cv::Rect lROI;
+	plotArray("a", t, N);
 
-		 //Define ROI from the Input Image
-		 lROI = cv::Rect(0, STRIP_H*stripe, mFrMag.cols, STRIP_H);
-		 mFrMag(lROI).copyTo(ddd);
+	double maxVal = 0;
+	int candidate1 = 0;
+	int candidate2 = 0;
 
-		 Mat dst;
-		 cerr << maxB << endl;
-		 Mat mask = mFrAng(lROI) < (maxB-10);
-		 ddd.setTo(0, mask);
-		 mask = mFrAng(lROI) > (maxB+10);
-		 ddd.setTo(0, mask);
+	for (int i = 5; i < N-5; i++)
+	{
+		double val = t[i-2] + t[i-1] * 2.0 + t[i] * 4.0 + t[i+1] * 2.0 + t[i+2];
+		val /= 10.0;
+		t2[i] = val;
+		if (maxVal < val) maxVal = val, candidate1 = i;
+	}
+
+	t2[candidate1] *= -1;
+
+	plotArray("t2", t2, N);
+
+	maxVal = 0;
+	for (int i = 0; i < N; i++)
+	{
+		double d = abs(i - candidate1);
+		double val = t2[i] * (d / (d + 30.0));
+		t3[i] = val;
+
+		if (maxVal < val) maxVal = val, candidate2 = i;
+	}
+
+	t3[candidate2] *= -1;
 
 
-		 reduce(ddd, dst, 0 /* single row*/, CV_REDUCE_AVG);
 
-		 vector<float> vec;
-		 dst.copyTo(vec);
-		 assert(vec.size() >= N);
-		 for (int i = 0; i < N; i++) values[i] = vec[i];
+	plotArray("t3", t3, N);
+	t[candidate1] *= -1;
+	t[candidate2] *= -1;
 
 
+	cerr << "\t" << arg[candidate1] << "\t" << arg[candidate2] << endl;
+
+	plotArray("selected", t, N);
+
+
+	double candidates[2] = {arg[candidate1], arg[candidate2]};
+
+	N = 0;
+	double canB[2];
+
+	for (int cand = 0; cand < 2; cand++)
+	{
+		double a = candidates[cand];
+
+		double maxP = 0;
+		double maxB = 0;
+		for (double b = -0.5; b < 0.5; b+=0.005)
+		{
+			double prob = calcHistProb(in, a, b);
+			t4[N++] = prob;
+			if (maxP < prob) maxP=prob, maxB=b;
+		}
+		canB[cand] = maxB;
+	}
+
+
+
+	plotArray("b", t4, N);
+	params[0] = arg[candidate1] / STRIP_H;
+	params[1] = canB[0];
+	params[2] = arg[candidate2] / STRIP_H;
+	params[3] = canB[1];
+	*amt = 2;
+}
+
+
+
+void calculateMatch(double *dest, int N, double a, double b, Mat img, Mat ang)
+{
+	Mat mask, imgRoi, angRoi, difRoi, tmp, imgRoi2, difRoi2;
+	Mat img2;
+
+	img.copyTo(img2);
+	cv::Rect lROI;
+
+	for (int i = 0; i < N; i++) dest[i] = 0;
+
+	int STR_N = 10;
+	int STR_H = img.rows / STR_N;
+
+	cerr << a << "\t" << b << endl;
+	for (int s = 0; s < STR_N; s++)
+	{
+		lROI = cv::Rect(0, STR_H*s, img.cols, STR_H);
+
+		img(lROI).copyTo(imgRoi);
+		ang(lROI).copyTo(angRoi);
+
+
+
+		double y = BIRD_HEIGHT-((double)s+0.5)*(double)STR_H;
+
+		double dif = a * y * y + b * y;
+		double angle = (2 * a * y + b) * 128;
+		angRoi.copyTo(difRoi);
+		difRoi -= angle;
+		difRoi = abs(difRoi);
+		tmp = difRoi + 4;
+		difRoi = tmp - difRoi;
+
+		divide(difRoi, tmp, difRoi2, 1, CV_32F);
+		multiply(difRoi2, imgRoi, imgRoi2, 1, CV_8U);
+
+		Mat dst;
+
+		reduce(imgRoi2, dst, 0, CV_REDUCE_SUM, CV_32S);
+
+		int * ptr = dst.ptr<int>(0);
+		for (int i = 0; i < dst.cols; i++)
+		{
+			int index = i - dif;
+			if ((index >= 0) && (index < N)) dest[index] += ptr[i];
+		}
+
+		//imgRoi2.copyTo(img2(Rect(0, STR_H*s, imgRoi.cols, imgRoi.rows)));
+	}
+
+	//imshow("img2", img2);
 
 }
 
-int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
+
+void CurveDetector::bufferFiltering(int bufferSize)
 {
-	if (mCfg->display_graphics)  imshow("curveDet", frame);
-	Point mO_ICCS_ICS(frame.cols/2, frame.rows/2);
-
-	mInput = frame;
-
-	prepareROI(mInput, mROI);
-	blur(mROI, mROIblurred);
-	if (mCfg->display_graphics) imshow("ROI", mROIblurred);
-	cv::Mat tmp;
-	tmp = mROIblurred.getMat(ACCESS_READ);
-
-	Mat birdRaw;
-	setParams(Lane, tmp);
-	birdRaw = mBird.applyTransformation(tmp);
-	if (mCfg->display_graphics) imshow("birdRaw", birdRaw);
-	GaussianBlur(birdRaw, birdRaw, cv::Size(5, 5), 2, 2);
-	computeMap(birdRaw, mFrMag, mFrAng);
 	if (bufMag[0].rows == 0)
 	{
 		for (int i = 0; i < 10; i++)
@@ -502,31 +474,52 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 			mFrAng.copyTo(bufAng[i]);
 		}
 	}
-
 	mFrMag.copyTo(bufMag[bufIt]);
 	mFrAng.copyTo(bufAng[bufIt]);
-	bufIt = (bufIt+1)%3;
+	bufIt = (bufIt+1)%bufferSize;
 
-
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < bufferSize; i++)
 	{
 		mMask = mFrMag < bufMag[i];
 
 		bufMag[i].copyTo(mFrMag, mMask );
 		bufAng[i].copyTo(mFrAng, mMask );
 	}
+}
 
+int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
+{
+	Mat birdRaw, tmp;
 
+	Point mO_ICCS_ICS(frame.cols/2, frame.rows/2);
+	mInput = frame;
 
+	prepareROI(mInput, mROI);
+
+	GaussianBlur(mROI, mROIblurred, cv::Size(3,3), 3, 3);
+
+	if (mCfg->display_graphics) imshow("mROIblurred", mROIblurred);
+
+	tmp = mROIblurred.getMat(ACCESS_READ);
+
+	setParams(Lane, tmp);
+
+	birdRaw = mBird.applyTransformation(tmp);
+
+	if (mCfg->display_graphics) imshow("birdRaw", birdRaw);
+
+	GaussianBlur(birdRaw, birdRaw, cv::Size(5, 5), 2, 2);
+
+	computeMap(birdRaw, mFrMag, mFrAng);
+
+	bufferFiltering(mCfg->buffer_count);
 
 	if (mCfg->display_graphics) imshow("mFrMag", mFrMag);
-
 
 
 	Mat debugFrame;
 	mFrMag.copyTo(debugFrame);
     cvtColor(debugFrame, debugFrame, COLOR_GRAY2BGR);
-
 
     line(debugFrame, Point(birdLeftStart + Point2f(2, 2)), Point(birdLeftStart + Point2f(-2, -2)), CvScalar(255, 0, 0), 2);
     line(debugFrame, Point(birdLeftStart + Point2f(-2, 2)), Point(birdLeftStart + Point2f(2, -2)), CvScalar(255, 0, 0), 2);
@@ -534,80 +527,88 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
     line(debugFrame, Point(birdRightStart + Point2f(2, 2)), Point(birdRightStart + Point2f(-2, -2)), CvScalar(255, 0, 0), 2);
     line(debugFrame, Point(birdRightStart + Point2f(-2, 2)), Point(birdRightStart + Point2f(2, -2)), CvScalar(255, 0, 0), 2);
 
-    score2(mFrMag, mFrAng, 0);
+  //  score2(mFrMag, mFrAng, 0);
+
+    double hist[STRIPES_AMOUNT*RANGE_N], hist2[STRIPES_AMOUNT*RANGE_N];
+    double hist3[STRIPES_AMOUNT*RANGE_N];
+    calculateHistograms(mFrMag, mFrAng, &hist[0]);
+    plotHistograms("before Filtering", &hist[0]);
+    filterHistorgrams(&hist[0], &hist2[0]);
+    plotHistograms("after Filtering", &hist2[0]);
 
 
-    double values[debugFrame.cols];
-    matchParabolaWithMap(mFrMag, mFrAng, maxA, maxB, &values[0], debugFrame.cols);
+    double params[10];
+    int candidatesN;
+    findCandidates(&hist2[0], &params[0], &candidatesN);
 
-    for (int i = 0; i < debugFrame.cols; i++)
+    double cHists[10000], histNorm[10000];
+    calculateMatch(&cHists[0], mFrMag.cols, params[0], params[1], mFrMag, mFrAng);
+    calculateMatch(&cHists[mFrMag.cols], mFrMag.cols, params[2], params[3], mFrMag, mFrAng);
+
+
+    for (int n = 0; n < candidatesN; n++)
     {
-		line(debugFrame, Point(i, debugFrame.rows), Point(i, debugFrame.rows - values[i]), CvScalar(0,0, 255), 2);
+    	int offset = n * mFrMag.cols;
+    	for (int i = 0; i < mFrMag.cols; i++)
+    	{
+    		double dL = abs(i - birdLeftStart.x);
+    		double weight1 = 1 - dL / (dL + 1);
+
+    		double dR = abs(i - birdRightStart.x);
+    		double weight2 = 1 - dR / (dR + 1);
+
+    		hist3[offset + i] = (weight1 + weight2) * cHists[offset + i];
+    	}
     }
 
-    float maxI;
-    float maxScore = 0;
-	for (float i = 0; i < 1; i+=10.1)
+
+    double maxV = 0;
+    for (int i = 0; i < mFrMag.cols*candidatesN; i++) if (maxV < cHists[i]) maxV = cHists[i];
+    for (int i = 0; i < mFrMag.cols*candidatesN; i++) cHists[i] /= maxV;
+
+	plotArray("c", &cHists[0], mFrMag.cols*candidatesN);
+
+	maxV = 0;
+	for (int i = 0; i < mFrMag.cols*candidatesN; i++) if (maxV < hist3[i]) maxV = hist3[i];
+	for (int i = 0; i < mFrMag.cols*candidatesN; i++) hist3[i] /= maxV;
+
+	plotArray("hist3 c", &hist3[0], mFrMag.cols*candidatesN);
+
+	double bestSum = -1;
+	double bestA, bestB;
+	for (int c = 0; c < candidatesN; c++)
 	{
-		float MARGIN = 0.15;
-		vector<int> from, to, fromD, toD, test;
-
-		from = curve(i - MARGIN, rightB, birdRightStart.x);
-		to = curve(i + MARGIN, rightB, birdRightStart.x);
-
-		fromD = dif(i - MARGIN, rightB, birdRightStart.x);
-		toD = dif(i + MARGIN, rightB, birdRightStart.x);
-
-
-		float sR = score(from, to, fromD, toD, mFrMag, mFrAng);
-
-		test  = curve(i, rightB, birdRightStart.x);
-		for (int i = 1; i < test.size(); i++)
+		double sum = 0;
+		int offset = c * mFrMag.cols;
+		for (int i = 0; i < mFrMag.cols; i++)
 		{
-			//line(debugFrame, Point(test[i-1], i-1), Point(test[i], i), CvScalar(sR*12, 0, 0), 1);
+			sum += hist3[offset + i];
 		}
+		cerr << c << " got " << sum << "\n";
 
-
-		from = curve(i - MARGIN, leftB, birdLeftStart.x);
-		to = curve(i + MARGIN, leftB, birdLeftStart.x);
-
-		fromD = dif(i - MARGIN, leftB, birdLeftStart.x);
-		toD = dif(i + MARGIN, leftB, birdLeftStart.x);
-
-
-		float sL = score(from, to, fromD, toD, mFrMag, mFrAng);
-
-		test  = curve(i, leftB, birdLeftStart.x);
-		for (int i = 1; i < test.size(); i++)
-		{
-			//line(debugFrame, Point(test[i-1], i-1), Point(test[i], i), CvScalar(sL*12,0, 0), 1);
-		}
-
-		float score = sL * sL;
-
-		//cerr << i << "\t" << score << endl;
-
-		line(debugFrame, Point(i*10 + 100, BIRD_HEIGHT), Point(i*10 +100, BIRD_HEIGHT-score/100), CvScalar(0,0, 255), 1);
-		if (maxScore < score)
-		{
-			maxScore = score;
-			maxI = i;
-		}
+		if (bestSum < sum) bestSum = sum, bestA = params[c*2], bestB = params[c*2 + 1];
 	}
 
-    maxI = maxA;
+
+
     rightB = (maxB - 100) / 128;
     leftB = (maxB - 100) / 128;
-    cerr << maxB << "\t" << rightB << endl;
 
-	vector<int> test  = curve(maxI, leftB, birdLeftStart.x);
+	vector<int> test  = curve(params[2], params[3], birdLeftStart.x);
 	for (int i = 1; i < test.size(); i++)
 	{
 		line(debugFrame, Point(test[i-1], i-1), Point(test[i], i), CvScalar(0,255, 0), 2);
 	}
+
+	test  = curve(params[0], params[1], birdLeftStart.x);
+	for (int i = 1; i < test.size(); i++)
+	{
+		line(debugFrame, Point(test[i-1], i-1), Point(test[i], i), CvScalar(0,0, 255), 2);
+	}
 	Lane->curveL.clear();
 
 	vector<Point2f> out;
+	test  = curve(bestA, bestB, birdLeftStart.x);
 	for (int i = test.size() - 1; i >= 0; i-=50)
 	{
 		out.push_back(Point2f(test[i], i));
@@ -616,18 +617,23 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 	mBird.invertPoints(out, Lane->curveL);
 	out.clear();
 
-	test  = curve(maxI, rightB, birdRightStart.x);
-
-	for (int i = test.size() - 1; i >= 0; i-=50)
+	test  = curve(params[0], params[1], birdRightStart.x);
+	for (int i = 1; i < test.size(); i++)
 	{
-		out.push_back(Point2f(test[i], i));
+		line(debugFrame, Point(test[i-1], i-1), Point(test[i], i), CvScalar(0,0, 255), 2);
 	}
 
+	test  = curve(params[2], params[3], birdRightStart.x);
 	for (int i = 1; i < test.size(); i++)
 	{
 		line(debugFrame, Point(test[i-1], i-1), Point(test[i], i), CvScalar(0,255, 0), 2);
 	}
 
+	test  = curve(bestA, bestB, birdRightStart.x);
+	for (int i = test.size() - 1; i >= 0; i-=50)
+	{
+		out.push_back(Point2f(test[i], i));
+	}
 	mBird.invertPoints(out, Lane->curveR);
 
 	for (Point2f & pt : Lane->curveL) pt += Point2f(0, mROIy);

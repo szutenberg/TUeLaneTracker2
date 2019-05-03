@@ -68,7 +68,7 @@ private:
 
     void matchParabolaWithMap(cv::Mat mFrMag, cv::Mat mFrAng, double maxA, double maxB, double values[], int N);
 
-
+    void bufferFiltering(int bufferSize);
 	static int TIPPING_POINT_GRAY;
 	static int TIPPING_POINT_GRAD_Mag;
 	int mROIy; /* y-coordinate of upper edge of ROI in the input image */
