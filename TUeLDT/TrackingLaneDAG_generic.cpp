@@ -167,6 +167,7 @@ mProfiler.start("TEMPORAL_FILTERING");
           mBufferPool->GradientTangent[i].copyTo(mGradTanFocussed, mMask );
       }
 	
+      imshow("mProbMapFocussed", mProbMapFocussed);
 #ifdef PROFILER_ENABLED
 mProfiler.end();
 LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
@@ -186,7 +187,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
 mProfiler.start("COMPUTE_INTERSECTIONS");
 #endif	
 	//Note: Gradients are not computed in the Image-center-cs. slope is positive in upward direction.
-	//Therefore invert the mY_ICCS by subtracting the BASE_LINE
+	//Therefore invert the mY_ICCS by subtracting the BASE_LINE, histNorm[10000]
 	//Weights of the intersections above the vanishingPt are already set to zero.
 
 	//Base Intersections
@@ -499,6 +500,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 	
 	   int32_t* 	lPtrHistPurview  = mHistPurview.ptr<int32_t>(0);
 
+	   int selWidth_cm;
 	   for(int v=0; v < mVpFilter->COUNT_BINS_V;v++)
 	   {	for(int h=0; h < mVpFilter->COUNT_BINS_H; h++)
 		{
@@ -641,6 +643,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 			    mVanishPt.H 	= lBIN_H;
   			    mIdxPurview_LB  	= lIdx_LB;
   			    mIdxPurview_RB  	= lIdx_RB;
+  			  selWidth_cm = lWidth_cm;
 		         }//end, if posterior is greater than existing Max
 
 		      }//end, if Lane Width is in Range
@@ -648,6 +651,8 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 				
 		 }//for-end			
 	     }//for-end
+
+	   //cerr << "width = " << selWidth_cm << " cm\n";
 		
 	     if (mMaxPosterior == 0)
 	     {
@@ -657,6 +662,44 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		
 	} // Scope Ends
 		
+#ifndef DEBUG_FRAMES
+{
+	cv::Mat FrameTest;
+	cv::cvtColor(FrameGRAY, FrameTest, cv::COLOR_GRAY2BGR);
+
+	uint32_t mHistPurviewMax = 0;
+	uint32_t mHistBaseMax = 0;
+	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
+	{
+		if (mHistPurview.at<uint32_t>(i) > mHistPurviewMax) mHistPurviewMax = mHistPurview.at<uint32_t>(i);
+		if (mHistBase.at<uint32_t>(i)    > mHistBaseMax)    mHistBaseMax    = mHistBase.at<uint32_t>(i);
+	}
+
+	uint32_t BAR_MAX_HEIGHT = 200;
+	uint32_t mHistPurviewScale = mHistPurviewMax / BAR_MAX_HEIGHT;
+	uint32_t mHistBaseScale = mHistBaseMax / BAR_MAX_HEIGHT;
+
+	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
+	{
+		int x = mLaneFilter->PURVIEW_BINS.at<int32_t>(i, 0) + mLaneFilter->O_ICCS_ICS.x;
+		int y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+		int val = mHistPurview.at<uint32_t>(i) / mHistPurviewScale;
+		if (val < 0) val = 1;
+		cv::line(FrameTest, cvPoint(x, y), cvPoint(x, y - val), cvScalar(0, val, 0), 3);
+	}
+
+	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
+	{
+		int x = mLaneFilter->BASE_BINS.at<int32_t>(i, 0) + mLaneFilter->O_ICCS_ICS.x;
+		int y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
+		int val = mHistBase.at<uint32_t>(i) / mHistBaseScale;
+		if (val < 0) val = 1;
+		cv::line(FrameTest, cvPoint(x, y), cvPoint(x, y - val), cvScalar(val, 0, 0), 5);
+	}
+
+	cv::imshow("TrackingLaneDAG", FrameTest);
+}
+#endif
 #ifdef PROFILER_ENABLED
 mProfiler.end();
 LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl

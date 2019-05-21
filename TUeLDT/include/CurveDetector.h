@@ -30,7 +30,12 @@ private:
 	const LaneFilter* mLaneFilter;
 	const VanishingPtFilter* mVpFilter;
 	const Templates* mTemplates;
+	double pxPerCm;
+	void evaluateC(double *dest, int N);
 
+	float lastConfidence;
+	double lastAl, lastBl, lastCl;
+	double lastAr, lastBr, lastCr;
 
 	cv::UMat mInput;
 	cv::UMat mROI;
@@ -65,9 +70,19 @@ private:
 	vector<cv::Point2f> segmentsToRemove;
 
 	cv::Mat tmp, tmp2;
+	void findCandidates(double *in, double *params, int* amt);
+	double calcHistProb(double *in, double a, double b);
+	void plotArray(const char * name, double *in, int N);
+	void filterHistorgrams(double* in, double *out);
+	void plotHistograms(const char * name, double* vals);
+	void calculateHistograms(cv::Mat img, cv::Mat ang, double* vals);
+	vector<int> curve(double a, double b, double c);
+	void calculateMatch(double *dest, int N, double a, double b, Mat img, Mat ang);
 
+	void trackEgoLane(double *c, int N);
+	void filterLaneMarkings(cv::Mat img, cv::Mat& laneMarkingsVal);
     void matchParabolaWithMap(cv::Mat mFrMag, cv::Mat mFrAng, double maxA, double maxB, double values[], int N);
-
+    void applyConfidenceGradient(cv::Mat& img);
     void bufferFiltering(int bufferSize);
 	static int TIPPING_POINT_GRAY;
 	static int TIPPING_POINT_GRAD_Mag;

@@ -107,7 +107,7 @@ bool BirdView::configureTransform(Point l1, Point l2, Point r1, Point r2, int ma
 
 bool BirdView::configureTransform2(Point l1, Point r1, Point vp, int width, int height)
 {
-	std::cerr << "vp = " << vp << "\n";
+	//std::cerr << "vp = " << vp << "\n";
 	if (vp.x == 0) return false;
 
 	Point2f vl = Point2f(vp) - Point2f(l1);
