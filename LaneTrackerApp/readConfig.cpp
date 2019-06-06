@@ -45,6 +45,8 @@ int readConfig(string path, LaneTracker::Config* cfg)
 	cfg->display_graphics = ((int)fs["display_graphics"]) != 0;
 	cfg->print_json = ((int)fs["print_json"]) != 0;
 	cfg->curve_detector = fs["curve_detector"];
+	cfg->neural_network = fs["neural_network"];
+
 	fs.release();
 
 	return 0;

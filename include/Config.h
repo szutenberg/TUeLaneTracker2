@@ -69,8 +69,9 @@ namespace LaneTracker
 	
 	int    buffer_count	    = 3;    	    /**<  Provide number of frames to buffer[Temporal Filtering]*/
 	bool   display_graphics = true;         /**< Renders graphics on to a HDMI display */
-	bool   print_json       = true;
-	int    curve_detector   = 0;
+	bool   print_json       = true;         /**< Prints json to std::count */
+	int    curve_detector   = 0;            /**< Activate curve detector - 0-old algorithm */
+	int neural_network = 0;                 /**< Port of localhost server with neural network (0 = feature not used) */
   };
 
 }

@@ -30,7 +30,7 @@
 #include "FrameRenderer.h"
 #include "JsonOutput.h"
 #include "CurveDetector.h"
-
+#include "NeuralNetwork.h"
 using namespace std;
 
 class StateMachine
@@ -54,6 +54,7 @@ private:
 	JsonOutput* mJson;
 	int mFrameIt;
 	CurveDetector* mCurveDetector;
+	NeuralNetwork* mNN;
 
 	#ifdef S32V2XX
 	 unique_ptr<InitState>						mPtrBootingState;

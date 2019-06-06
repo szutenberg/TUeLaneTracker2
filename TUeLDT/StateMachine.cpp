@@ -45,7 +45,8 @@ StateMachine::StateMachine(unique_ptr<FrameFeeder> frameFeeder, const LaneTracke
    mPtrLaneModel(nullptr),
    mJson(nullptr),
    mFrameIt(0),
-   mCurveDetector(nullptr)
+   mCurveDetector(nullptr),
+   mNN(nullptr)
 {
 
 	#ifdef S32V2XX
@@ -130,7 +131,7 @@ int StateMachine::spin()
 	   	    mPtrTemplates 	        = mPtrBootingState->createTemplates();
 
 	   	    mCurveDetector = new CurveDetector(&mConfig, mPtrLaneFilter.get(), mPtrVanishingPtFilter.get(), mPtrTemplates.get());
-
+	   	    if (mConfig.neural_network) mNN = new NeuralNetwork(mConfig.neural_network, 640, 320);
 		}
 		if (mPtrBootingState->currentStatus == StateStatus::DONE)
 		{				
@@ -249,11 +250,13 @@ int StateMachine::spin()
 		  try
 		  {
                UMat inputFrame = mPtrFrameFeeder->dequeue();
+		       UMat displayFrame = mPtrFrameFeeder->dequeueDisplay();
+
+		       if (mConfig.neural_network) mNN->processImage(displayFrame.getMat(ACCESS_READ));
 		       mPtrLaneModel = mPtrTrackingState->run(inputFrame);
 
 		       if (mConfig.curve_detector) mCurveDetector->run(inputFrame, mPtrLaneModel);
 
-		       UMat displayFrame = mPtrFrameFeeder->dequeueDisplay();
 		       if(mConfig.display_graphics)
 		       {
 		    	   mPtrFrameRenderer->drawLane(displayFrame, *mPtrLaneModel);
