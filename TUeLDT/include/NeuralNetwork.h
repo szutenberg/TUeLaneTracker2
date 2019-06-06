@@ -26,6 +26,10 @@ public:
 private:
 	static void threadFunction();
 	std::thread mThread;
+	int mWidth;
+	int mHeight;
+
+
 
 };
 
