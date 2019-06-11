@@ -98,12 +98,50 @@ Status GetTopLabels(const std::vector<Tensor>& outputs, int how_many_labels,
 using namespace std;
 int NeuralNetwork::mPort = 0;
 
-int sock = 0;
-
+int initialized = 0; // FIXME
 
 NeuralNetwork::NeuralNetwork(int port, int width, int height) {
-	string graph = "./output_graph.pb";
 
+
+	mWidth = width;
+	mHeight = height;
+	cerr << "Neural Network initialization!\n";
+	mThread = std::thread(&threadFunction);
+}
+
+
+NeuralNetwork::~NeuralNetwork() {
+	// TODO Auto-generated destructor stub
+
+}
+vector<Mat> mImgQueue;
+
+void NeuralNetwork::processImage(cv::Mat img)
+{
+	while(mImgQueue.size() > 1);
+	Mat wrzuta;
+	img.copyTo(wrzuta);
+	mImgQueue.push_back(wrzuta);
+	return;
+
+}
+
+int resultReady = 0;
+Mat result;
+cv::Mat NeuralNetwork::getResult()
+{
+	if (!initialized) return cv::Mat(0,0,0);
+	while(!resultReady);
+	return result;
+}
+
+
+void NeuralNetwork::threadFunction()
+{
+	printf("Thread!");
+	string graph = "./output_graph.pb";
+	int mHeight = 260;
+	int mWidth = 640;
 	// First we load and initialize the model.
 	Status load_graph_status = LoadGraph(graph, &session);
 	if (!load_graph_status.ok()) {
@@ -111,29 +149,7 @@ NeuralNetwork::NeuralNetwork(int port, int width, int height) {
 		return;
 	}
 
-	mWidth = width;
-	mHeight = height;
-}
-
-
-
-
-
-//	// TODO Auto-generated constructor stub
-//	mThread = std::thread(&threadFunction);
-//	NeuralNetwork::mPort = port;
-
-
-NeuralNetwork::~NeuralNetwork() {
-	// TODO Auto-generated destructor stub
-
-}
-
-void NeuralNetwork::processImage(cv::Mat img)
-{
-	uchar* ptr = img.ptr<uchar>(0);
-
-	string input_layer = "input_1";
+	string input_layer = "input_3";
 	string output_layer = "k2tfout_0";
 
 	std::vector<Tensor> resized_tensors;
@@ -142,80 +158,68 @@ void NeuralNetwork::processImage(cv::Mat img)
 			tensorflow::TensorShape({1, mHeight, mWidth, 3}));
 	auto input_tensor_mapped = input_tensor.tensor<float, 4>();
 
-	int startY = img.rows - mHeight;
-	cv::Rect lROI = cv::Rect(0, startY, mWidth, mHeight);
-	cv::Mat imgROI;
-	img(lROI).copyTo(imgROI);
+	initialized = 1;
+	while(1)
+	{
+
+		Mat img;
+
+		while(mImgQueue.empty());
+
+		resultReady = 0;
+
+		img = mImgQueue[0];
+		mImgQueue.pop_back();
+
+		int startY = img.rows - mHeight;
+		cv::Rect lROI = cv::Rect(0, startY, mWidth, mHeight);
+		cv::Mat imgROI;
+		img(lROI).copyTo(imgROI);
 
 
-	for (int y = 0; y < mHeight; y++) {
-		for (int x = 0; x < mWidth; x++) {
-			Vec3b pixel = imgROI.at<Vec3b>(y, x);
+		for (int y = 0; y < mHeight; y++) {
+			for (int x = 0; x < mWidth; x++) {
+				Vec3b pixel = imgROI.at<Vec3b>(y, x);
 
-			input_tensor_mapped(0, y, x, 0) = pixel.val[2] / 128.0 - 1.0; //R
-			input_tensor_mapped(0, y, x, 1) = pixel.val[1] / 128.0 - 1.0; //G
-			input_tensor_mapped(0, y, x, 2) = pixel.val[0] / 128.0 - 1.0; //B
+				input_tensor_mapped(0, y, x, 0) = pixel.val[2] / 128.0 - 1.0; //R
+				input_tensor_mapped(0, y, x, 1) = pixel.val[1] / 128.0 - 1.0; //G
+				input_tensor_mapped(0, y, x, 2) = pixel.val[0] / 128.0 - 1.0; //B
+			}
 		}
+
+		const Tensor& resized_tensor = input_tensor;
+
+		std::vector<Tensor> outputs;
+		Status run_status = session->Run({{input_layer, resized_tensor}},
+				{output_layer}, {}, &outputs);
+		if (!run_status.ok()) {
+			LOG(ERROR) << "Running model failed: " << run_status;
+			return;
+		}
+
+		int outHeight = mHeight / 4;
+		int outWidth = mWidth / 4;
+
+
+		assert(outputs[0].dims() == 3);
+		assert(outputs[0].dim_size(0) == outHeight);
+		assert(outputs[0].dim_size(1) == outWidth);
+		assert(outputs[0].dim_size(2) == 1);
+
+
+		Mat outMat =  Mat::zeros(mHeight/4, mWidth/4, CV_32F);
+		// tensor<float, 3>: 3 here because it's a 3-dimension tensor
+		auto outputImg = outputs[0].tensor<float, 3>();
+
+		for (int y = 0; y < outHeight; ++y) {
+			for (int x = 0; x < outWidth; ++x)
+			{
+				float val = outputImg(y, x,0);
+				outMat.at<float>(y,x) = val;
+			}
+		}
+
+		resize(outMat, result, cv::Size(mWidth, mHeight), 0, 0, INTER_NEAREST);
+		resultReady = 1;
 	}
-
-	const Tensor& resized_tensor = input_tensor;
-
-	std::vector<Tensor> outputs;
-	Status run_status = session->Run({{input_layer, resized_tensor}},
-			{output_layer}, {}, &outputs);
-	if (!run_status.ok()) {
-		LOG(ERROR) << "Running model failed: " << run_status;
-		return;
-	}
-
-
-	assert(outputs[0].dims() == 3);
-	assert(outputs[0].dim_size(0) == mHeight/4);
-	assert(outputs[0].dim_size(1) == mWidth/4);
-	assert(outputs[0].dim_size(2) == 1);
-
-
-	Mat outMat =  Mat::zeros(mHeight/4, mWidth/4, CV_32F);
-	// tensor<float, 3>: 3 here because it's a 3-dimension tensor
-	auto outputImg = outputs[0].tensor<float, 3>();
-
-	for (int y = 0; y < 80; ++y) {
-	  for (int x = 0; x < 160; ++x)
-	  {
-	    outMat.at<float>(y,x) = outputImg(y, x,0);
-	  }
-	}
-
-	Mat resized;
-	resize(outMat, resized, cv::Size(mWidth, mHeight), 0, 0, INTER_NEAREST);
-
-	imshow("outMat", resized);
-
-}
-
-cv::Mat NeuralNetwork::getResult()
-{
-
-	return cv::Mat(1,1, 1);
-
-}
-
-cv::Mat NeuralNetwork::getRecentResult()
-{
-return cv::Mat(1,1,1);
-
-}
-
-void NeuralNetwork::threadFunction()
-{
-	printf("Thread!");
-
-//	while (1)
-//	{
-//		printf("alive\n");
-//	    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//	}
-
-	// Client side C/C++ program to demonstrate Socket programming
-
 }

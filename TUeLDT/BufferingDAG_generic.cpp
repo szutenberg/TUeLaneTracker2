@@ -18,9 +18,10 @@
 * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 * THE POSSIBILITY OF SUCH DAMAGE.
 * ****************************************************************************/ 
+#include "NeuralNetwork.h"
 
 #include "BufferingDAG_generic.h"
-
+int cnt= 0; //FIXME
 BufferingDAG_generic::BufferingDAG_generic(const LaneTracker::Config& Config) 
 : mBufferPos(0),
   mCAMERA(Camera(Config))
@@ -288,6 +289,35 @@ mProfiler.start("FOCUS");
 #endif 							
 
 	bitwise_and(mBufferPool->Probability[mBufferPos], mFocusTemplate, mBufferPool->Probability[mBufferPos]);
+
+	if (cnt++ > 3) // FIXME
+	{
+		Mat nnLayerROI;
+		Mat mProbMapFocussed2;
+		Mat output;
+		Mat nnLayer = NeuralNetwork::getResult();
+		Mat tmp;
+
+		mBufferPool->Probability[mBufferPos].copyTo(tmp);
+
+		if (nnLayer.rows > 0 && tmp.rows > 0)
+		{
+			cv::Rect lROI = cv::Rect(0, nnLayer.rows - tmp.rows, tmp.cols, tmp.rows);
+			imshow("old probability", mBufferPool->Probability[mBufferPos]);
+			nnLayer(lROI).copyTo(nnLayerROI);
+			nnLayerROI.convertTo(nnLayerROI, CV_8U, 256, 0);
+			imshow("nnLayerROI", nnLayerROI);
+		}
+
+		if (nnLayer.rows > 0 && tmp.rows > 0 && nnLayerROI.cols > 0)
+		{
+			multiply(nnLayerROI, tmp, mBufferPool->Probability[mBufferPos], 1.0/256.0);
+			imshow("new probability", mBufferPool->Probability[mBufferPos]);
+		}
+	}
+
+
+
 
 	if(mBufferPos < ((mBufferPool->Probability.size())-1) )
 	mBufferPos ++;

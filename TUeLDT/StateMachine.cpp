@@ -186,6 +186,7 @@ int StateMachine::spin()
 		   try
 		   {
 		     mPtrBufferingState->run(mPtrFrameFeeder->dequeue());
+		     mPtrFrameFeeder->dequeueDisplay();
 		   }
 		   catch(const char* msg)
 		   {

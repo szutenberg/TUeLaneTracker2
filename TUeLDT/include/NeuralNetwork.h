@@ -18,8 +18,7 @@ class NeuralNetwork {
 public:
 	NeuralNetwork(int port, int width, int height);
 	void processImage(cv::Mat img);
-	cv::Mat getResult();
-	cv::Mat getRecentResult();
+	static cv::Mat getResult();
 
 	virtual ~NeuralNetwork();
 	static int mPort;
