@@ -664,8 +664,11 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		
 #ifndef DEBUG_FRAMES
 {
+	const int MARGIN_WIDTH = 300;
 	cv::Mat FrameTest;
-	cv::cvtColor(FrameGRAY, FrameTest, cv::COLOR_GRAY2BGR);
+	FrameTest = cv::Mat::ones(FrameGRAY.rows, 2*MARGIN_WIDTH + FrameGRAY.cols, CV_8U) * 128;
+	FrameGRAY.copyTo(FrameTest(cv::Rect(MARGIN_WIDTH, 0, FrameGRAY.cols, FrameGRAY.rows)));
+	cv::cvtColor(FrameTest, FrameTest, cv::COLOR_GRAY2BGR);
 
 	uint32_t mHistPurviewMax = 0;
 	uint32_t mHistBaseMax = 0;
@@ -685,7 +688,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		int y = mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
 		int val = mHistPurview.at<uint32_t>(i) / mHistPurviewScale;
 		if (val < 0) val = 1;
-		cv::line(FrameTest, cvPoint(x, y), cvPoint(x, y - val), cvScalar(0, val, 0), 3);
+		cv::line(FrameTest, cvPoint(x+MARGIN_WIDTH, y), cvPoint(x+MARGIN_WIDTH, y - val), cvScalar(0, val, 0), 3);
 	}
 
 	for (size_t i = 0; i < mLaneFilter->COUNT_BINS; i++)
@@ -694,7 +697,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		int y = mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
 		int val = mHistBase.at<uint32_t>(i) / mHistBaseScale;
 		if (val < 0) val = 1;
-		cv::line(FrameTest, cvPoint(x, y), cvPoint(x, y - val), cvScalar(val, 0, 0), 5);
+		cv::line(FrameTest, cvPoint(x+MARGIN_WIDTH, y), cvPoint(x+MARGIN_WIDTH, y - val), cvScalar(val, 0, 0), 5);
 	}
 
 	cv::imshow("TrackingLaneDAG", FrameTest);
