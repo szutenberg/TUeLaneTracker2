@@ -46,6 +46,7 @@ StateMachine::StateMachine(unique_ptr<FrameFeeder> frameFeeder, const LaneTracke
    mJson(nullptr),
    mFrameIt(0),
    mCurveDetector(nullptr),
+   mCurveDetector2(nullptr),
    mNN(nullptr)
 {
 
@@ -131,6 +132,8 @@ int StateMachine::spin()
 	   	    mPtrTemplates 	        = mPtrBootingState->createTemplates();
 
 	   	    mCurveDetector = new CurveDetector(&mConfig, mPtrLaneFilter.get(), mPtrVanishingPtFilter.get(), mPtrTemplates.get());
+	   	    mCurveDetector2 = new CurveDetector2(&mConfig, mPtrLaneFilter.get(), mPtrVanishingPtFilter.get(), mPtrTemplates.get());
+
 	   	    if (mConfig.neural_network) mNN = new NeuralNetwork(mConfig.neural_network, 640, 320);
 		}
 		if (mPtrBootingState->currentStatus == StateStatus::DONE)
@@ -256,7 +259,15 @@ int StateMachine::spin()
 		       if (mConfig.neural_network) mNN->processImage(displayFrame.getMat(ACCESS_READ));
 		       mPtrLaneModel = mPtrTrackingState->run(inputFrame);
 
-		       if (mConfig.curve_detector) mCurveDetector->run(inputFrame, mPtrLaneModel);
+		       if (mConfig.curve_detector == 1) mCurveDetector->run(inputFrame, mPtrLaneModel);
+
+		       if (mConfig.curve_detector == 2)
+		       {
+		    	   mCurveDetector2->run(
+		    		   mPtrTrackingState->mGraph,
+					   mPtrLaneModel
+		    	   );
+		       }
 
 		       if(mConfig.display_graphics)
 		       {
@@ -365,6 +376,9 @@ StateMachine::~StateMachine()
    mJson = nullptr;
    if (mCurveDetector != nullptr) delete mCurveDetector;
    mCurveDetector = nullptr;
+
+   if (mCurveDetector2 != nullptr) delete mCurveDetector2;
+   mCurveDetector2 = nullptr;
 
    #ifdef S32V2XX
     OAL_Deinitialize();

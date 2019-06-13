@@ -30,6 +30,7 @@
 #include "FrameRenderer.h"
 #include "JsonOutput.h"
 #include "CurveDetector.h"
+#include "CurveDetector2.h"
 #include "NeuralNetwork.h"
 using namespace std;
 
@@ -54,6 +55,8 @@ private:
 	JsonOutput* mJson;
 	int mFrameIt;
 	CurveDetector* mCurveDetector;
+	CurveDetector2* mCurveDetector2;
+
 	NeuralNetwork* mNN;
 
 	#ifdef S32V2XX
