@@ -21,15 +21,11 @@ public:
 	static cv::Mat getResult();
 
 	virtual ~NeuralNetwork();
-	static int mPort;
 private:
 	static void threadFunction();
 	std::thread mThread;
 	int mWidth;
 	int mHeight;
-
-
-
 };
 
 #endif /* TUELDT_NEURALNETWORK_H_ */

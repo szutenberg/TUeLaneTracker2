@@ -96,16 +96,13 @@ Status GetTopLabels(const std::vector<Tensor>& outputs, int how_many_labels,
 #include <unistd.h>
 #include <string.h>
 using namespace std;
-int NeuralNetwork::mPort = 0;
 
 int initialized = 0; // FIXME
 
 NeuralNetwork::NeuralNetwork(int port, int width, int height) {
-
-
 	mWidth = width;
 	mHeight = height;
-	cerr << "Neural Network initialization!\n";
+	cerr << "Neural Network initialization: " << width << " x " << height << "\n";
 	mThread = std::thread(&threadFunction);
 }
 
@@ -119,11 +116,10 @@ vector<Mat> mImgQueue;
 void NeuralNetwork::processImage(cv::Mat img)
 {
 	while(mImgQueue.size() > 1);
-	Mat wrzuta;
-	img.copyTo(wrzuta);
-	mImgQueue.push_back(wrzuta);
+	Mat inputImg;
+	img.copyTo(inputImg);
+	mImgQueue.push_back(inputImg);
 	return;
-
 }
 
 int resultReady = 0;
@@ -138,9 +134,8 @@ cv::Mat NeuralNetwork::getResult()
 
 void NeuralNetwork::threadFunction()
 {
-	printf("Thread!");
 	string graph = "./output_graph.pb";
-	int mHeight = 260;
+	int mHeight = 340;
 	int mWidth = 640;
 	// First we load and initialize the model.
 	Status load_graph_status = LoadGraph(graph, &session);
@@ -161,7 +156,6 @@ void NeuralNetwork::threadFunction()
 	initialized = 1;
 	while(1)
 	{
-
 		Mat img;
 
 		while(mImgQueue.empty());
@@ -176,16 +170,21 @@ void NeuralNetwork::threadFunction()
 		cv::Mat imgROI;
 		img(lROI).copyTo(imgROI);
 
+		/// TODO BEGIN - in next networks this block should be removed (operation should be done when training)
+		vector<Mat> channels(3);
+		vector<Mat> channels2(3);
+		// split img:
+		split(imgROI, channels);
+		channels[0].copyTo(channels2[2]);
+		channels[1].copyTo(channels2[1]);
+		channels[2].copyTo(channels2[0]);
+		merge(channels2, imgROI);
+		/// TODO END - in next networks this block should be removed (operation should be done when training)
 
-		for (int y = 0; y < mHeight; y++) {
-			for (int x = 0; x < mWidth; x++) {
-				Vec3b pixel = imgROI.at<Vec3b>(y, x);
 
-				input_tensor_mapped(0, y, x, 0) = pixel.val[2] / 128.0 - 1.0; //R
-				input_tensor_mapped(0, y, x, 1) = pixel.val[1] / 128.0 - 1.0; //G
-				input_tensor_mapped(0, y, x, 2) = pixel.val[0] / 128.0 - 1.0; //B
-			}
-		}
+		float *inPtr = input_tensor.flat<float>().data();
+		cv::Mat inputImg(mHeight, mWidth, CV_32FC3, inPtr); // inputImg is allocated in input_sensor
+		imgROI.convertTo(inputImg, CV_32FC3, 1/128.0, -1.0);
 
 		const Tensor& resized_tensor = input_tensor;
 
@@ -200,26 +199,17 @@ void NeuralNetwork::threadFunction()
 		int outHeight = mHeight / 4;
 		int outWidth = mWidth / 4;
 
-
 		assert(outputs[0].dims() == 3);
 		assert(outputs[0].dim_size(0) == outHeight);
 		assert(outputs[0].dim_size(1) == outWidth);
 		assert(outputs[0].dim_size(2) == 1);
 
-
-		Mat outMat =  Mat::zeros(mHeight/4, mWidth/4, CV_32F);
 		// tensor<float, 3>: 3 here because it's a 3-dimension tensor
-		auto outputImg = outputs[0].tensor<float, 3>();
+		float *outPtr = outputs[0].tensor<float, 3>().data();
+		Mat outMat(outHeight, outWidth, CV_32F, outPtr);
 
-		for (int y = 0; y < outHeight; ++y) {
-			for (int x = 0; x < outWidth; ++x)
-			{
-				float val = outputImg(y, x,0);
-				outMat.at<float>(y,x) = val;
-			}
-		}
-
-		resize(outMat, result, cv::Size(mWidth, mHeight), 0, 0, INTER_NEAREST);
+		resize(outMat, result, cv::Size(mWidth, mHeight), 0, 0, INTER_LINEAR);
+		outMat.convertTo(outMat, CV_16U, (1<<16 )- 1);
 		resultReady = 1;
 	}
 }
