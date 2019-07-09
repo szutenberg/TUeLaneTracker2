@@ -40,9 +40,13 @@ private:
 
    const cv::Mat        mBASE_BINS;
    const cv::Mat	mPURVIEW_BINS;
+   const cv::Mat	mFAR_BINS;
+
    const cv::Point	mO_ICCS_ICS;
    const int 		mBASE_LINE_ICS;
    const int 		mPURVIEW_LINE_ICS;
+   const int 		mFAR_LINE_ICS;
+
    const size_t		mCOUNT_BINS;
    const int      	mHORIZON_V;
 
@@ -61,9 +65,11 @@ public:
    : 
      mBASE_BINS(LANE_FLTR.BASE_BINS),
      mPURVIEW_BINS(LANE_FLTR.PURVIEW_BINS),
+     mFAR_BINS(LANE_FLTR.FAR_BINS),
      mO_ICCS_ICS(LANE_FLTR.O_ICCS_ICS),
      mBASE_LINE_ICS(LANE_FLTR.BASE_LINE_ICCS + mO_ICCS_ICS.y),
      mPURVIEW_LINE_ICS(LANE_FLTR.PURVIEW_LINE_ICCS + mO_ICCS_ICS.y),
+     mFAR_LINE_ICS(LANE_FLTR.FAR_LINE_ICCS + mO_ICCS_ICS.y),
      mCOUNT_BINS(mBASE_BINS.rows),
      mHORIZON_V(LANE_FLTR.CAMERA.HORIZON_VH(0)),
      mFrameFeeder(FRAME_FEEDER)

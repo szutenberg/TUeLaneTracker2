@@ -98,6 +98,8 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane)
    //Draw Purview Line
    line(FRAME, Point(0,mPURVIEW_LINE_ICS), Point(FRAME.cols,mPURVIEW_LINE_ICS),	CvScalar(0,0,0),1);
 
+   line(FRAME, Point(0,mFAR_LINE_ICS), Point(FRAME.cols,mFAR_LINE_ICS),	CvScalar(0,0,0),1);
+
 /*
    // Highlight region below Horizon
    {
@@ -114,12 +116,12 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane)
    // Draw Histogram-Bins at the Base
    for (size_t i=0; i < mCOUNT_BINS; i++)
    {
-	int x =  mBASE_BINS.at<int32_t>(i,0) + mO_ICCS_ICS.x ;
+	   int x =  mBASE_BINS.at<int32_t>(i,0) + mO_ICCS_ICS.x ;
 
-	//if (x !=  lBoundaryPts_M[0].x)
-	line(FRAME, cvPoint(x,mBASE_LINE_ICS), cvPoint(x,mBASE_LINE_ICS - 30), cvScalar(0,0,0), 1);
-	//else
-	//line(FRAME, cvPoint(x,mBASE_LINE_ICS), cvPoint(x,mBASE_LINE_ICS - 40), cvScalar(0,0,255), 2);
+	   //if (x !=  lBoundaryPts_M[0].x)
+	   line(FRAME, cvPoint(x,mBASE_LINE_ICS), cvPoint(x,mBASE_LINE_ICS - 30), cvScalar(0,0,0), 1);
+	   //else
+	   //line(FRAME, cvPoint(x,mBASE_LINE_ICS), cvPoint(x,mBASE_LINE_ICS - 40), cvScalar(0,0,255), 2);
    }
 
 
@@ -127,15 +129,22 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane)
    // Draw Histogram-Bins at the Purview
    for (size_t i=0; i < mCOUNT_BINS; i++)
    {
-	int x = mPURVIEW_BINS.at<int32_t>(i,0) + mO_ICCS_ICS.x;
-	if ( (x== Lane.boundaryLeft[1] + mO_ICCS_ICS.x) |(x== Lane.boundaryRight[1] + mO_ICCS_ICS.x) )
-	{
-	  line(FRAME, cvPoint(x, mPURVIEW_LINE_ICS), cvPoint(x, mPURVIEW_LINE_ICS - 60), cvScalar(0,0,255), 1);
-	}
-	else
-	line(FRAME, cvPoint(x, mPURVIEW_LINE_ICS), cvPoint(x, mPURVIEW_LINE_ICS - 30), cvScalar(0,0,0), 1);
+	   int x = mPURVIEW_BINS.at<int32_t>(i,0) + mO_ICCS_ICS.x;
+	   if ( (x== Lane.boundaryLeft[1] + mO_ICCS_ICS.x) |(x== Lane.boundaryRight[1] + mO_ICCS_ICS.x) )
+	   {
+		   line(FRAME, cvPoint(x, mPURVIEW_LINE_ICS), cvPoint(x, mPURVIEW_LINE_ICS - 60), cvScalar(0,0,255), 1);
+	   }
+	   else
+		   line(FRAME, cvPoint(x, mPURVIEW_LINE_ICS), cvPoint(x, mPURVIEW_LINE_ICS - 30), cvScalar(0,0,0), 1);
    }
 
+
+   // Draw Histogram-Bins at the Far
+   for (size_t i=0; i < mCOUNT_BINS; i++)
+   {
+	   int x = mFAR_BINS.at<int32_t>(i,0) + mO_ICCS_ICS.x;
+	   line(FRAME, cvPoint(x, mFAR_LINE_ICS), cvPoint(x, mFAR_LINE_ICS - 30), cvScalar(0,0,0), 1);
+   }
 
    #ifndef DISPLAY_GRAPHICS_DCU
      imshow( "Display window", FRAME);

@@ -104,10 +104,10 @@ public:
 			FOCUS_MASK_ROOT.convertTo(FOCUS_MASK_ROOT, CV_8U);	
 	
 		/* Create Depth Template */
-			MatrixXf DEPTH_ROOT  = MatrixXf::Zero(RES_V, RES_H);			
+			MatrixXf DEPTH_ROOT  = MatrixXf::Zero(RES_V, RES_H);
 			const float step     = FOV_V/RES_V;
 			float angle = 90- step;
-			
+
 			for(int n = 0; n < RES_V ; n++)
 			{
 			  float x= 1.75 * tan(angle * M_PI/180.0 );

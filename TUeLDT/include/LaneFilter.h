@@ -52,10 +52,12 @@ public:	 	//Public Interface
 		
 
   		const int 	BASE_LINE_ICCS;		/**< Base line in Image-Center-CS [pixel-lines] */
-  		const int 	PURVIEW_LINE_ICCS;	/**< Base line in Image-Center-CS [pixel-lines] */
+  		const int 	PURVIEW_LINE_ICCS;	/**< Purview line in Image-Center-CS [pixel-lines] */
+  		const int 	FAR_LINE_ICCS;	/**< Far line in Image-Center-CS [pixel-lines] */
 
   		float 		BASE_LINE_cm;		/**< Look-ahead distance at the base line in Vehicle_Symmetry-CS [cm] */
   		float  		PURVIEW_LINE_cm;	/**< Look-ahead distance at the purview line in Vehicle_Symmetry-CS [cm] */
+  		float  		FAR_LINE_cm;	/**< Look-ahead distance at the purview line in Vehicle_Symmetry-CS [cm] */
 
 		const float	BINS_STEP_cm;  		/**< Step size for the Histogram BINS [cm] */
   		const float	BINS_MAX_cm;		/**< Max value of the #BINS_cm **/
@@ -66,12 +68,15 @@ public:	 	//Public Interface
 		
 		const float	BASE_STEP;		/**< Step size for the base bins */
 		const float 	PURVIEW_STEP;		/**< Step size for the purview bins */
+		const float 	FAR_STEP;		/**< Step size for the purview bins */
 
 		const int	BASE_OFFSET;		/**< Starting Point for Base Bins in Image-Center-CS*/
 		const int 	PURVIEW_OFFSET;		/**< Starting Point for Purview Bins in Image-Cener-CS*/
+		const int 	FAR_OFFSET;		/**< Starting Point for Purview Bins in Image-Cener-CS*/
 
 		const cv::Mat   BASE_BINS;    		/**<Describes the Histogram BINS, in Image-Center-CS, at BASE line [pixels] */
 		const cv::Mat   PURVIEW_BINS; 		/**<Describes the Histogram BINS, in Image-Center-CS, at PURVIEW line [pixels] */
+		const cv::Mat   FAR_BINS; 		/**<Describes the Histogram BINS, in Image-Center-CS, at FAR line [pixels] */
 
 
 		cv::Mat 	prior;			/**< \brief This 2D-filter provides prior prbobility for a certain 

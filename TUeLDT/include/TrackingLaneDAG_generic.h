@@ -36,7 +36,7 @@ FRIEND_TEST(TrackingTest, MASK_INTERSECTIONS);
 FRIEND_TEST(TrackingTest, WEIGHTS);
 FRIEND_TEST(TrackingTest, HISTOGRAMS);
 
-private:
+public: // FIXME
 	int32_t			mMAX_PIXELS_ROI;
 	
 	float   		mLikelihood_LB;
@@ -51,13 +51,16 @@ private:
 
 	int32_t 		mLOWER_LIMIT_BASE;
 	int32_t 		mLOWER_LIMIT_PURVIEW;
+	int32_t 		mLOWER_LIMIT_FAR;
 
 	int32_t 		mUPPER_LIMIT_BASE;
 	int32_t 		mUPPER_LIMIT_PURVIEW;
+	int32_t 		mUPPER_LIMIT_FAR;
 
 	int32_t 		mSTEP_BASE_SCALED;
 	int32_t 		mSTEP_PURVIEW_SCALED;
-	
+	int32_t 		mSTEP_FAR_SCALED;
+
 	size_t			mIdxPurview_LB;
 	size_t			mIdxPurview_RB;
 
@@ -70,6 +73,8 @@ private:
 
 	cv::Mat			mBASE_BINS_SCALED;
 	cv::Mat			mPURVIEW_BINS_SCALED;
+	cv::Mat			mFAR_BINS_SCALED;
+
 	cv::Mat 		mX_ICCS_SCALED;	
 
 	#ifdef TEST_APEX_CODE
@@ -82,14 +87,18 @@ private:
 
 	cv::Mat 		mIntBase;           
 	cv::Mat			mIntPurview;
+	cv::Mat			mIntFar;
+
 	cv::Mat 		mIntWeights;
 	
 	cv::Mat			mHistBase;
 	cv::Mat			mHistPurview;
+	cv::Mat			mHistFar;
 
 	cv::Mat			mHistBase_CV64F;
 	cv::Mat			mHistPurview_CV64F;
-	
+	cv::Mat			mHistFar_CV64F;
+
 	cv::Mat 		mTransitLaneFilter;
 	cv::Mat 		mTransitVpFilter;
 

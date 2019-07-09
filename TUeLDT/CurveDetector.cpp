@@ -8,7 +8,7 @@
 #include "CurveDetector.h"
 #include "opencv2/opencv.hpp"
 #include "BirdView.h"
-
+#include "NeuralNetwork.h"
 
 using namespace cv;
 
@@ -764,7 +764,7 @@ void CurveDetector::filterLaneMarkings(cv::Mat img, cv::Mat& laneMarkingsVal)
 		line(tmp2, segmentsToRemove[i-1], segmentsToRemove[i], cv::Scalar(0), 24);
 	}
 
-	imshow("blur", tmp);
+	//imshow("blur", tmp);
 
 
 	img -= 128;
@@ -838,6 +838,16 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 	Point mO_ICCS_ICS(frame.cols/2, frame.rows/2);
 	mInput = frame;
 
+	UMat nnRoi;
+	Mat nnOut = NeuralNetwork::getResult();
+	if (nnOut.rows)
+	{
+		imshow("nnOut", nnOut);
+		prepareROI(nnOut.getUMat(ACCESS_READ), nnRoi);
+		imshow("nnROI", nnRoi);
+	}
+
+
 	prepareROI(mInput, mROI);
 
 
@@ -871,11 +881,21 @@ int CurveDetector::run(cv::UMat& frame, LaneModel* Lane)
 	Mat markMag, markAng;
 	computeMap(laneMarkingsBlurred, markMag, markAng);
 
+	if (nnOut.rows)
+	{
+		Mat nnBird = mBird.applyTransformation(nnRoi.getMat(ACCESS_READ));
+		imshow("nnBird", nnBird);
+		nnBird.convertTo(nnBird, CV_16S);
+		multiply(markMag, nnBird, markMag, 1.0/255, CV_8U);
+
+	}
+
 	Mat mask = markMag < 1;
 	laneMarkings.setTo(0, mask);
 	mask = laneMarkings > mFrMag;
 	laneMarkings.copyTo(mFrMag, mask);
 	markAng.copyTo(mFrAng, mask);
+
 
 
 

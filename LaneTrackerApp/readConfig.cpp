@@ -37,6 +37,7 @@ int readConfig(string path, LaneTracker::Config* cfg)
 	cfg->cam_lateral_offset = fs["cam_lateral_offset"];
 	cfg->base_line_IBCS = fs["base_line_IBCS"];
 	cfg->purview_line_IBCS = fs["purview_line_IBCS"];
+	cfg->far_line_IBCS = fs["far_line_IBCS"];
 	cfg->step_lane_filter_cm = fs["step_lane_filter_cm"];
 	cfg->step_vp_filter = fs["step_vp_filter"];
 	cfg->vp_range_ver = fs["vp_range_ver"];

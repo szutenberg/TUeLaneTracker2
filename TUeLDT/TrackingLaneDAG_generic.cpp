@@ -34,16 +34,23 @@ TrackingLaneDAG_generic::TrackingLaneDAG_generic(BufferingDAG_generic&& bufferin
   mInvCorrelationNB(0),
   mLOWER_LIMIT_BASE(0),
   mLOWER_LIMIT_PURVIEW(0),
+  mLOWER_LIMIT_FAR(0),
   mUPPER_LIMIT_BASE(0),
   mUPPER_LIMIT_PURVIEW(0),
+  mUPPER_LIMIT_FAR(0),
   mSTEP_BASE_SCALED(0),
   mSTEP_PURVIEW_SCALED(0),
+  mSTEP_FAR_SCALED(0),
   mIdxPurview_LB(0),
   mIdxPurview_RB(0)
 {	
 
 }
 
+int previousModel = 0;
+
+cv::Mat oldBaseHist;
+cv::Mat mDepthTemplate2;
 
 int TrackingLaneDAG_generic::init_DAG(LaneFilter* laneFilter, VanishingPtFilter* vpFilter)
 {
@@ -65,22 +72,28 @@ int TrackingLaneDAG_generic::init_DAG(LaneFilter* laneFilter, VanishingPtFilter*
 
 	const size_t& lCOUNT    = mLaneFilter->COUNT_BINS;
 
-	mX_ICCS_SCALED	 	=  SCALE_INTSEC*mX_ICCS;
-	mBASE_BINS_SCALED  	=  SCALE_INTSEC*mLaneFilter->BASE_BINS;
+	mX_ICCS_SCALED	 	    =  SCALE_INTSEC*mX_ICCS;
+	mBASE_BINS_SCALED  	    =  SCALE_INTSEC*mLaneFilter->BASE_BINS;
 	mPURVIEW_BINS_SCALED	=  SCALE_INTSEC*mLaneFilter->PURVIEW_BINS;
+	mFAR_BINS_SCALED	    =  SCALE_INTSEC*mLaneFilter->FAR_BINS;
 
-	mSTEP_BASE_SCALED	=  SCALE_INTSEC*mLaneFilter->BASE_STEP;
+	mSTEP_BASE_SCALED	    =  SCALE_INTSEC*mLaneFilter->BASE_STEP;
 	mSTEP_PURVIEW_SCALED	=  SCALE_INTSEC*mLaneFilter->PURVIEW_STEP;
+	mSTEP_FAR_SCALED	    =  SCALE_INTSEC*mLaneFilter->FAR_STEP;
 
-	mLOWER_LIMIT_BASE	=  mBASE_BINS_SCALED.at<int32_t>(0,0);
+	mLOWER_LIMIT_BASE	    =  mBASE_BINS_SCALED.at<int32_t>(0,0);
 	mLOWER_LIMIT_PURVIEW  	=  mPURVIEW_BINS_SCALED.at<int32_t>(0,0);
+	mLOWER_LIMIT_FAR  	    =  mFAR_BINS_SCALED.at<int32_t>(0,0);
 
-	mUPPER_LIMIT_BASE	=  mBASE_BINS_SCALED.at<int32_t>(lCOUNT-1,0);
+	mUPPER_LIMIT_BASE	    =  mBASE_BINS_SCALED.at<int32_t>(lCOUNT-1,0);
 	mUPPER_LIMIT_PURVIEW  	=  mPURVIEW_BINS_SCALED.at<int32_t>(lCOUNT-1,0);
+	mUPPER_LIMIT_FAR  	    =  mFAR_BINS_SCALED.at<int32_t>(lCOUNT-1,0);
 
 
-        mHistBase      		 =  cv::Mat::zeros(lCOUNT,  1 ,  CV_32S);
-        mHistPurview   		 =  cv::Mat::zeros(lCOUNT,  1 ,  CV_32S);
+    mHistBase               =  cv::Mat::zeros(lCOUNT,  1 ,  CV_32S);
+    mHistPurview            =  cv::Mat::zeros(lCOUNT,  1 ,  CV_32S);
+    mHistFar                =  cv::Mat::zeros(lCOUNT,  1 ,  CV_32S);
+
 
   	return 0;
 }
@@ -106,8 +119,11 @@ mProfiler.start("SETUP_ASYNC_FILTERING");
 	   //Predict Lane States
 	   lLock.lock();	
 	    mLaneFilter->filter.convertTo(mLaneFilter->filter, CV_64F);
-	    boxFilter(mLaneFilter->filter, mTransitLaneFilter, -1, cv::Size(11,11), cv::Point(-1,-1), false, cv::BORDER_REPLICATE );
+	    boxFilter(mLaneFilter->filter, mTransitLaneFilter, -1, cv::Size(5,5), cv::Point(-1,-1), false, cv::BORDER_REPLICATE );
     	    mLaneFilter->filter.convertTo(mLaneFilter->filter, CV_32S);
+
+    	//    cerr << "mLaneFilter->filter" << mLaneFilter->filter.cols << " x " << mLaneFilter->filter.rows << "\n";
+    	//    cerr << "mTransitLaneFilter" << mTransitLaneFilter.cols << " x " << mTransitLaneFilter.rows << "\n";
 
 	    lSUM = sum(mTransitLaneFilter)[0];
 
@@ -120,6 +136,9 @@ mProfiler.start("SETUP_ASYNC_FILTERING");
 	    mVpFilter->filter.convertTo(mVpFilter->filter, CV_64F);
 	    boxFilter(mVpFilter->filter, mTransitVpFilter, -1, cv::Size(3,3), cv::Point(-1,-1), false, cv::BORDER_REPLICATE );
     	    mVpFilter->filter.convertTo(mVpFilter->filter, CV_32S);
+
+    //	    cerr << "mVpFilter->filter" << mVpFilter->filter.cols << " x " << mVpFilter->filter.rows << "\n";
+    //	    cerr << "mTransitVpFilter" << mTransitVpFilter.cols << " x " << mTransitVpFilter.rows << "\n";
 
 	    lSUM = sum(mTransitVpFilter)[0];
 	    mTransitVpFilter= mTransitVpFilter*SCALE_FILTER;
@@ -168,6 +187,7 @@ mProfiler.start("TEMPORAL_FILTERING");
       }
 	
       imshow("mProbMapFocussed", mProbMapFocussed);
+
 #ifdef PROFILER_ENABLED
 mProfiler.end();
 LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
@@ -200,6 +220,10 @@ mProfiler.start("COMPUTE_INTERSECTIONS");
 	divide(mIntPurview,mGradTanFocussed, mIntPurview, SCALE_INTSEC_TAN, CV_32S);
 	add(mIntPurview, mX_ICCS_SCALED, mIntPurview);
 
+	//Far Intersections
+	subtract(mY_ICCS, mLaneFilter->FAR_LINE_ICCS, mIntFar, cv::noArray(), CV_32S);
+	divide(mIntFar, mGradTanFocussed, mIntFar, SCALE_INTSEC_TAN, CV_32S);
+	add(mIntFar, mX_ICCS_SCALED, mIntFar);
 
 	bitwise_and(mBufferPool->Probability[mBufferPos], mFocusTemplate, mBufferPool->Probability[mBufferPos]);
 
@@ -254,37 +278,86 @@ LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
 mProfiler.start("COMPUTE_HISTOGRAMS");
 #endif
 	//Weights of Intersections
-	multiply(mDepthTemplate, mProbMapFocussed, mIntWeights, 1, CV_32S);	
+
+	if (mDepthTemplate2.rows == 0)
 	{
-	   int32_t* 	lPtrIntBase 	    = mIntBase.ptr<int32_t>(0);
-	   int32_t* 	lPtrIntPurview      = mIntPurview.ptr<int32_t>(0);
-	   int32_t* 	lPtrWeights   	    = mIntWeights.ptr<int32_t>(0);
-	   uint8_t* 	lPtrMask            = mMask.ptr<uint8_t>(0);
+		mDepthTemplate2 = cv::Mat::zeros(mDepthTemplate.rows, mDepthTemplate.cols, CV_8U);
 
-	   int32_t* 	lPtrHistBase        =  mHistBase.ptr<int32_t>(0);
-	   int32_t* 	lPtrHistPurview     =  mHistPurview.ptr<int32_t>(0);
+		for (int y = 0; y < mDepthTemplate.rows; y++)
+		{
+			double dy = mDepthTemplate.rows - y;
+			double coeff = 50000;
+			uint16_t val = exp(-dy*dy / coeff) * 255;
 
-	   uint16_t   	lBaseBinIdx;
-	   uint16_t   	lPurviewBinIdx;
-	   int32_t    	lWeightBin;
+			for (int x = 0; x < mDepthTemplate.cols; x++)
+			{
+				mDepthTemplate2.at<uint8_t>(y, x) = val;
+			}
+		}
+		imshow("mDepthTemplate2", mDepthTemplate2);
 
-	   for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrWeights++ , lPtrMask++)
-	   {
-	      if(!(*lPtrMask ==0) )
-	      {		
-		 lBaseBinIdx	= (*lPtrIntBase    - mLOWER_LIMIT_BASE    + (mSTEP_BASE_SCALED/2))/mSTEP_BASE_SCALED;
-		 lPurviewBinIdx	= (*lPtrIntPurview - mLOWER_LIMIT_PURVIEW + (mSTEP_PURVIEW_SCALED/2))/mSTEP_PURVIEW_SCALED;
+	}
 
-	         lWeightBin 	= *lPtrWeights;
 
-		 assert((0<=lBaseBinIdx)&&(lBaseBinIdx<mHistBase.rows ));
+	multiply(mDepthTemplate2, mProbMapFocussed, mIntWeights, 1/255.0, CV_32S);
 
-		 *(lPtrHistBase       + lBaseBinIdx   )  	+= lWeightBin;
-	         *(lPtrHistPurview    + lPurviewBinIdx)         += lWeightBin;
-	    }	
-	
-	   }
-	
+	cv::Point min_loc, max_loc;
+	double min, max;
+	cv::minMaxLoc(mIntWeights, &min, &max, &min_loc, &max_loc);
+	cout << "Max value: " << max << endl;
+
+	{
+		int32_t* 	lPtrIntBase 	    = mIntBase.ptr<int32_t>(0);
+		int32_t* 	lPtrIntPurview      = mIntPurview.ptr<int32_t>(0);
+		int32_t* 	lPtrIntFar          = mIntFar.ptr<int32_t>(0);
+
+		int32_t* 	lWeightBin   	    = mIntWeights.ptr<int32_t>(0);
+		uint8_t* 	lPtrMask            = mMask.ptr<uint8_t>(0);
+
+		int32_t* 	lPtrHistBase        =  mHistBase.ptr<int32_t>(0);
+		int32_t* 	lPtrHistPurview     =  mHistPurview.ptr<int32_t>(0);
+		int32_t* 	lPtrHistFar         =  mHistFar.ptr<int32_t>(0);
+
+		uint16_t   	lBaseBinIdx;
+		uint16_t   	lPurviewBinIdx;
+		uint16_t   	lFarBinIdx;
+		cv::Mat hist2dr = cv::Mat::zeros(mHistBase.rows, mHistBase.rows, CV_32S);
+		cv::Mat hist2dl = cv::Mat::zeros(mHistBase.rows, mHistBase.rows, CV_32S);
+
+
+		for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrIntFar++, lWeightBin++ , lPtrMask++)
+		{
+			if(!(*lPtrMask ==0) )
+			{
+				lBaseBinIdx	= (*lPtrIntBase    - mLOWER_LIMIT_BASE    + (mSTEP_BASE_SCALED/2))/mSTEP_BASE_SCALED;
+				lPurviewBinIdx	= (*lPtrIntPurview - mLOWER_LIMIT_PURVIEW + (mSTEP_PURVIEW_SCALED/2))/mSTEP_PURVIEW_SCALED;
+				lFarBinIdx	= (*lPtrIntFar - mLOWER_LIMIT_FAR + (mSTEP_FAR_SCALED/2))/mSTEP_FAR_SCALED;
+
+				assert( lBaseBinIdx < mHistBase.rows );
+
+				*(lPtrHistBase       + lBaseBinIdx   )  	+= *lWeightBin;
+				*(lPtrHistPurview    + lPurviewBinIdx)      += *lWeightBin;
+
+				if (lBaseBinIdx < mHistBase.rows/2) hist2dl.at<int32_t>(lBaseBinIdx, lPurviewBinIdx) += *lWeightBin;
+				else hist2dr.at<int32_t>(lBaseBinIdx, lPurviewBinIdx) += *lWeightBin;
+
+				if (lFarBinIdx < mHistBase.rows)
+				{
+					*(lPtrHistFar   + lFarBinIdx)      += *lWeightBin;
+				}
+
+
+			}
+
+		}
+
+		cv::minMaxLoc(hist2dr, &min, &max, &min_loc, &max_loc);
+		hist2dr *= 16;
+		hist2dl *= 16;
+
+		imshow("hist2dr", hist2dr);
+		imshow("hist2dl", hist2dl);
+
 	}//Block Ends
 
 #ifdef PROFILER_ENABLED
@@ -365,6 +438,11 @@ mProfiler.start("NORMALIZE_HISTOGRAM");
 	    lSUM = sum(mHistPurview)[0];
 	    mHistPurview.convertTo(mHistPurview_CV64F, CV_64F, SCALE_FILTER);
 	    mHistPurview_CV64F.convertTo(mHistPurview, CV_32S, 1.0/lSUM );
+
+	    //Normalising Far Histogram
+	    lSUM = sum(mHistFar)[0];
+	    mHistFar.convertTo(mHistFar_CV64F, CV_64F, SCALE_FILTER);
+	    mHistFar_CV64F.convertTo(mHistFar, CV_32S, 1.0/lSUM );
 	}
 	
 #ifdef PROFILER_ENABLED
@@ -380,80 +458,246 @@ LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
 
 
 
-
-
 #ifdef PROFILER_ENABLED
 mProfiler.start("HISTOGRAM_MATCHING");
 #endif
+
+
+//mTransitLaneFilter.at<int32_t>(lRowIdx, lColIdx)
+
+cv::Mat mTransitLaneFilter2;
+mTransitLaneFilter.convertTo(mTransitLaneFilter2, CV_16U, 128);
+		imshow("mTransitLaneFilter", mTransitLaneFilter2);
+
+if (oldBaseHist.rows == 0) mHistBase.copyTo(oldBaseHist);
+
+
+{
+	int32_t   	lBestModelIdx = -1;
+	int32_t* 	lPtrHistBase  = nullptr;
+	cv::Mat    	lRange;
+	cv::Mat probNB = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
+	cv::Mat leftP = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
+	cv::Mat rightP = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
+	cv::Mat probF = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
+
+	mPosterior		= 0;
+	mMaxPosterior  	= 0;
+
+	vector<BaseHistogramModel>& Models	= mLaneFilter->baseHistogramModels;
+	lPtrHistBase			=  mHistBase.ptr<int32_t>(0);
+
+
+	for(size_t i=0; i< Models.size(); i++)
 	{
-	    int32_t   	lBestModelIdx = -1;
-	    int32_t* 	lPtrHistBase  = nullptr; 
-	    cv::Mat    	lRange;
 
-	    mPosterior		= 0;
-	    mMaxPosterior  	= 0;
-
-	    vector<BaseHistogramModel>& Models	= mLaneFilter->baseHistogramModels;
-	    lPtrHistBase			=  mHistBase.ptr<int32_t>(0);
-	
-	   for(size_t i=0; i< Models.size(); i++)
-	   {    
-			
 		int& lIdx_LB    	 = Models[i].binIdxBoundary_left;
 		int& lIdx_RB		 = Models[i].binIdxBoundary_right;
 
 		int& lIdx_NLB	 	 = Models[i].binIdxNonBoundary_left;
 		int& lIdx_NRB    	 = Models[i].binIdxNonBoundary_right;
 
-		int& lCount_NLB          = Models[i].nonBoundaryBinsCount_left;
+		int& lCount_NLB      = Models[i].nonBoundaryBinsCount_left;
 		int& lCount_NRB		 = Models[i].nonBoundaryBinsCount_right;
 
-		mLikelihood_LB  	=  round(lPtrHistBase[lIdx_LB-1]*0.25
-					   +lPtrHistBase[lIdx_LB]
-					   +lPtrHistBase[lIdx_LB+1]*0.25);
-										 
-		mLikelihood_RB 		=  round(lPtrHistBase[lIdx_RB-1]*0.25
-					   +lPtrHistBase[lIdx_RB]
-					   +lPtrHistBase[lIdx_RB+1]*0.25);
-	
+		size_t lRowIdx = Models[i].rowIdxFilter;
+		size_t lColIdx = Models[i].colIdxFilter;
+
+		mLikelihood_LB = lPtrHistBase[lIdx_LB-1]*0.25 + lPtrHistBase[lIdx_LB];
+		mLikelihood_RB = lPtrHistBase[lIdx_RB+1]*0.25 + lPtrHistBase[lIdx_RB];
 		mConditionalProb  	=  (mLikelihood_LB *mLikelihood_RB)/(float)SCALE_FILTER;
 
+		mInvCorrelationNB = (double)sum(mHistBase(cv::Range(lIdx_LB + 5, lIdx_RB - 5 +1 ), cv::Range::all()) )[0] / (lIdx_RB - 5 +1 - (lIdx_LB + 5)) * 100.0;
 
-		//TODO:start=> Put this block on the side thread
-		mInvCorrelationNB	= 0;
-		lRange = mHistBase(cv::Range(lIdx_NLB,  lIdx_NLB  +  lCount_NLB ), cv::Range::all());
-		mInvCorrelationNB +=sum(lRange)[0];
-		
-	    	lRange = mHistBase(cv::Range(lIdx_NRB, lIdx_NRB + lCount_NRB), cv::Range::all());
-		mInvCorrelationNB +=sum(lRange)[0];
-		
-		float x= (float)mInvCorrelationNB / SCALE_FILTER ;
-		mLikelihood_NB = mLaneMembership.NEG_BOUNDARY_NORMA*exp(-pow(x,2)/mLaneMembership.NEG_BOUNDARY_NOMIN );
-		//(end)
+		double x= (double)mInvCorrelationNB / SCALE_FILTER ;
+		mLikelihood_NB = mLaneMembership.NEG_BOUNDARY_NORMA*exp(-x*x/mLaneMembership.NEG_BOUNDARY_NOMIN );
 
-		mConditionalProb  = (mConditionalProb * mLikelihood_NB); 
-	
-		size_t lRowIdx = Models[i].rowIdxFilter; 
-		size_t lColIdx = Models[i].colIdxFilter; 
-	    
-		mPosterior = round( mConditionalProb*mTransitLaneFilter.at<int32_t>(lRowIdx, lColIdx) );
-		mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) = mPosterior;
+		mConditionalProb  *= mLikelihood_NB;
+
+
+
+		probNB.at<float>(lRowIdx, lColIdx) = mLikelihood_NB;
+		leftP.at<float>(lRowIdx, lColIdx) = mLikelihood_LB/sqrt((float)SCALE_FILTER) / 20.0;
+		rightP.at<float>(lRowIdx, lColIdx) = mLikelihood_RB/sqrt((float)SCALE_FILTER) / 20.0;
+		probF.at<float>(lRowIdx, lColIdx) = mConditionalProb / 100.0;
+
+
+		mPosterior = mConditionalProb *  mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) ;
+
+
+		mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) = mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) * 0.9 + 0.1 * mConditionalProb;
 
 		//Keep track of the best Model
 		if(mPosterior > mMaxPosterior)
 		{
-		   mMaxPosterior = mPosterior; 
-		   lBestModelIdx = i;
+			mMaxPosterior = mPosterior;
+			lBestModelIdx = i;
 		}
-				
-	   } //Loop over all BaseHistogram Models
+
+	} //Loop over all BaseHistogram Models
 		
+
+	   imshow("probNB", probNB);
+	   imshow("leftP", leftP);
+	   imshow("rightP", rightP);
+	   imshow("probF", probF);
+
+
+
+
 	   if (mMaxPosterior != 0)
 	   {
 	      mBaseHistModel = Models[lBestModelIdx];
 	   }
+	   //cout <<  mTransitLaneFilter.at<int32_t>(Models[lBestModelIdx].rowIdxFilter, Models[lBestModelIdx].colIdxFilter);
 
+	   int prevLeft = Models[previousModel].binIdxBoundary_left;
+	   int curLeft = Models[lBestModelIdx].binIdxBoundary_left;
+	   int prevRight = Models[previousModel].binIdxBoundary_right;
+	   int curRight = Models[lBestModelIdx].binIdxBoundary_right;
+
+
+	  // cout << curLeft - prevLeft << "\t" << curRight - prevRight << "\n";
+/*
+	   if ( (abs(prevLeft - curLeft) > 1) || (abs(prevRight - curRight) > 1))
+	   {
+		   //cout << "Detection failed!\n";
+
+		   double cor[20][2];
+		   int32_t* 	oldHist  = oldBaseHist.ptr<int32_t>(0);
+		   int32_t* 	curHist  = mHistBase.ptr<int32_t>(0);
+
+		   cv::Mat newHist;
+
+		   mHistBase.copyTo(newHist);
+		   newHist *= 0;
+
+		   int32_t* newHistPtr = newHist.ptr<int32_t>(0);
+
+		   for (int i = 3; i < newHist.rows/2; i++)
+		   {
+			   newHistPtr[i] = curHist[i] + curHist[i-1] + curHist[i-2];
+		   }
+
+		   for (int i = newHist.rows/2; i < newHist.rows - 3; i++)
+		   {
+			   newHistPtr[i] = curHist[i] + curHist[i+1] + curHist[i+2];
+		   }
+
+		   int leftNoise = curHist[curLeft - 3];
+		   if (leftNoise < newHistPtr[curLeft + 3]) leftNoise = curHist[curLeft + 3];
+
+		   int rightNoise = curHist[curRight - 3];
+		   if (rightNoise < curHist[curRight + 3]) rightNoise = curHist[curRight + 3];
+
+		   cout << "confLeft = " << (float)curHist[curLeft]/leftNoise << "\t confRight = " << (float)curHist[curRight]/rightNoise << endl;
+
+		   // We are considering changes +/- 5 bins
+
+
+		   double score[133];
+		   int dR[133], dL[133];
+		   for (int i = 0; i < 133; i++)
+		   {
+			   if (i <= 11)
+			   {
+				   int dif = i - 5;
+				   dR[i] = dL[i] = dif;
+				   score[i] = curHist[prevLeft + dif] * curHist[prevRight + dif] * exp(-dif*dif/200.0);
+			   }
+			   else if (i <= 11 + 11 * 11)
+			   {
+				   int difL = (i - 12)/11 - 5;
+				   int difR = (i - 12)%11 - 5;
+				   dR[i] = difR;
+				   dL[i] = difL;
+
+				   int dif = abs(difL - difR);
+				   score[i] = curHist[prevLeft + difL] * curHist[prevRight + difR] * exp(-dif*dif/200.0) * exp(-(difL-dif)*(difL-dif)/200.0) * exp(-(difR-dif)*(difR-dif)/200.0);
+			   }
+
+		   }
+		   double maxVal = 0;
+		   int maxI;
+		   for (int i = 0; i < 133; i++)
+		   {
+			   double value = score[i];
+			   if (value > maxVal) maxVal = value, maxI = i;
+
+			   //cout << i << "\t" << (int)value << endl;
+		   }
+
+		   int newLeft = prevLeft + dL[maxI];
+		   int newRight = prevRight + dR[maxI];
+
+
+		   int sumF = sum(mVpFilter->filter)[0];
+		   int mV = 0;
+		   for (int x = 0; x < mVpFilter->filter.cols; x++)
+		   {
+			   for (int y = 0; y < mVpFilter->filter.rows; y++)
+			   {
+				   int val = mVpFilter->filter.at<int32_t>(y, x);
+				   if (mV < val) mV = val;
+			   }
+		   }
+
+		   //cout << "VP: " <<  (int)(sumF / mV) << endl;
+
+		   if ((sumF / mV) < 50)
+		   {
+			   for(size_t i=0; i< Models.size(); i++)
+			   {
+				   if ((Models[i].binIdxBoundary_left == newLeft) && (Models[i].binIdxBoundary_right == newRight))
+				   {
+					   lBestModelIdx = i;
+						  mBaseHistModel = Models[lBestModelIdx];
+
+					   cout << "\t" << dL[maxI] << "\t" << dR[maxI];
+
+
+				   }
+			   }
+			   cout << endl;
+		   }
+		   else cout << "Anomaly at VP - we need to detect again\n";
+	   }
+	   else
+	   {
+		   cout << "\tOK\n";
+	   }
+
+*/
+
+	   previousModel = lBestModelIdx;
 	}//Scope End
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	//cerr << "Chosen NB prob: " << chosenProb << "\n";
 
 #ifdef PROFILER_ENABLED
 mProfiler.end();
@@ -621,11 +865,15 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		
 		      	 //VP Probability over Non-Boundary Region
 		      	 mInvCorrelationNB   = 0;
+		      	 //cerr << "TrackingLaneDAG" << ":" << __LINE__ << "\t" << lIdx_LB << "\t" << lIdx_RB << "\n";
+
 		      	 lRange 	  = mHistPurview(cv::Range(lIdx_NLB, lIdx_NLB + lCount_NLB), cv::Range::all());
 		      	 mInvCorrelationNB   +=sum(lRange)[0];
 			
 		         lRange 	  = mHistPurview(cv::Range(lIdx_NRB, lIdx_NRB + lCount_NRB), cv::Range::all());
 		         mInvCorrelationNB   +=sum(lRange)[0];
+
+		         //cerr << lIdx_NLB << "\t" << lIdx_NLB + lCount_NLB << "\t\t" << lIdx_NRB << "\t" << lIdx_NRB + lCount_NRB << "\n";
 		
 		         mLikelihood_NB	   = mLaneMembership.NEG_BOUNDARY_NORMA;
 		         mLikelihood_NB   *= exp(-pow( mInvCorrelationNB/(float)SCALE_FILTER , 2)/mLaneMembership.NEG_BOUNDARY_NOMIN);
@@ -662,7 +910,7 @@ mProfiler.start("VP_HISTOGRAM_MATCHING");
 		
 	} // Scope Ends
 		
-#ifndef DEBUG_FRAMES
+#ifdef DEBUG_FRAMES
 {
 	const int MARGIN_WIDTH = 300;
 	cv::Mat FrameTest;

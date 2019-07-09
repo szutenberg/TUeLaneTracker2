@@ -115,6 +115,8 @@ LaneFilter::LaneFilter(const LaneProperties& LANE_PROP,  const Camera& CAM, cons
 
   PURVIEW_LINE_ICCS(-Config.purview_line_IBCS + O_IBCS_ICS.y + O_ICS_ICCS.y ),
 
+  FAR_LINE_ICCS(-Config.far_line_IBCS + O_IBCS_ICS.y + O_ICS_ICCS.y ),
+
   BASE_LINE_cm(-1),  
 
   PURVIEW_LINE_cm(-1),
@@ -131,13 +133,19 @@ LaneFilter::LaneFilter(const LaneProperties& LANE_PROP,  const Camera& CAM, cons
 
   PURVIEW_STEP(getPixelStep(BINS_STEP_cm, CAMERA, PURVIEW_LINE_ICCS, PURVIEW_LINE_cm)),
   
+  FAR_STEP(getPixelStep(BINS_STEP_cm, CAMERA, FAR_LINE_ICCS, FAR_LINE_cm)),
+
   BASE_OFFSET(getBinsOffset(CAMERA, BASE_LINE_ICCS)),
   
   PURVIEW_OFFSET(getBinsOffset(CAMERA, PURVIEW_LINE_ICCS)),
   
+  FAR_OFFSET(getBinsOffset(CAMERA, FAR_LINE_ICCS)),
+
   BASE_BINS(getBins(BINS_cm, BINS_STEP_cm, BASE_STEP, BASE_OFFSET)),
 
   PURVIEW_BINS(getBins(BINS_cm, BINS_STEP_cm, PURVIEW_STEP, PURVIEW_OFFSET)),
+
+  FAR_BINS(getBins(BINS_cm, BINS_STEP_cm, FAR_STEP, FAR_OFFSET)),
 
   prior( cv::Mat::zeros( (int)(BINS_MAX_cm/BINS_STEP_cm) +1, (int)(BINS_MAX_cm/BINS_STEP_cm) +1 , CV_32SC1) ),
   

@@ -265,7 +265,8 @@ int StateMachine::spin()
 		       {
 		    	   mCurveDetector2->run(
 		    		   mPtrTrackingState->mGraph,
-					   mPtrLaneModel
+					   mPtrLaneModel,
+					   inputFrame.getMat(ACCESS_READ)
 		    	   );
 		       }
 

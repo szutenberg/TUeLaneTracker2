@@ -60,6 +60,7 @@ namespace LaneTracker
 	//LaneFilter VpFilter Paramters
         int    base_line_IBCS	= 0;        /**< Describes base line in Image-Bottom-Coordinate-System */
 	int    purview_line_IBCS    = 160;      /**< Describes purview line in Image-Bottom-Coordinate-System */
+	int    far_line_IBCS    = 200;      /**< Describes far line in Image-Bottom-Coordinate-System */
 	int    step_lane_filter_cm  = 10; 		/**< Provides bin-size for the 1D lane filters */
 	int    step_vp_filter	    = 10;       /**< Provides bin-size for 2D vanishing-point filter */
 
