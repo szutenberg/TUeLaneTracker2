@@ -5,7 +5,8 @@ cmake_minimum_required (VERSION 2.8.11)
 find_package(OpenCV REQUIRED)
 find_package(S32VSDK QUIET)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -O0 -std=c++11")
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -O0 -std=c++11 -I/home/msz/.cache/bazel/_bazel_msz/d3830c3f96dd72d2690991a9d766dda3/external/com_google_absl -I/home/msz/tensorflow/tensorflow -I/home/msz/tensorflow/bazel-tensorflow/external/eigen_archive -I/home/msz/tensorflow/bazel-tensorflow/external/protobuf_archive/src -I/home/msz/tensorflow/bazel-genfiles -I/home/msz/tensorflow -ltensorflow_cc -ltensorflow_framework -L /home/msz/.cache/bazel/_bazel_msz/d3830c3f96dd72d2690991a9d766dda3/execroot/org_tensorflow/bazel-out/host/bin/tensorflow/ -L /home/msz/.cache/bazel/_bazel_msz/d3830c3f96dd72d2690991a9d766dda3/execroot/org_tensorflow/bazel-out/k8-opt/bin/tensorflow/")
 file(GLOB  SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/*.c )
 
 add_library(TUeLDT STATIC ${SOURCES})
