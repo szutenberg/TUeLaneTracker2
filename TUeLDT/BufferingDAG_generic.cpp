@@ -88,7 +88,7 @@ mProfiler.start("SETUP_ASYNC_TEMPLATES");
 
 	   //Extract Corresponding Gradient Orientation Template
 	   lRowIndex =  mCAMERA.RES_VH(0) - (mVP_RANGE_V + mVanishPt.V);
-	   lColIndex =  mCAMERA.RES_VH(1) - (mCAMERA.O_ICCS_ICS.x - mVanishPt.H) ;
+	   lColIndex =  mCAMERA.RES_VH(1) - (mCAMERA.O_ICCS_ICS.x + mVanishPt.H) ;
 	   lROI	     =  cv::Rect(lColIndex, lRowIndex, mCAMERA.RES_VH(1), mSPAN);
 
 	   lLock.lock();
