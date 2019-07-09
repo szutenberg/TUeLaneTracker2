@@ -108,8 +108,8 @@ NeuralNetwork::NeuralNetwork(int port, int width, int height) {
 
 
 NeuralNetwork::~NeuralNetwork() {
-	// TODO Auto-generated destructor stub
-
+	session->Close();
+	session.reset();
 }
 vector<Mat> mImgQueue;
 
