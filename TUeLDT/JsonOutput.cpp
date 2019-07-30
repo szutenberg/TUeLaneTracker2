@@ -35,7 +35,7 @@ void JsonOutput::print(const cv::UMat& FRAME, const LaneModel& Lane, string file
 {
 	Point mO_ICCS_ICS(FRAME.cols/2, FRAME.rows/2);
 	int mBASE_LINE_ICS = 480; // TODO fix it
-
+	int mPURVIEW_LINE_ICS = 480 - 120;
 	vector<Point2f> lBoundaryPts_L; // for straight lines
 	vector<Point2f> lBoundaryPts_R; // for straight lines
 	const vector<Point2f>* boundaryL = &lBoundaryPts_L;
@@ -56,8 +56,9 @@ void JsonOutput::print(const cv::UMat& FRAME, const LaneModel& Lane, string file
 	lBoundaryPts_L.push_back( Point( Lane.boundaryLeft[0]  + mO_ICCS_ICS.x, mBASE_LINE_ICS) );
 	lBoundaryPts_R.push_back( Point( Lane.boundaryRight[0] + mO_ICCS_ICS.x, mBASE_LINE_ICS) );
 
-	float lSlopeLeft =  (float)( VP_V - mBASE_LINE_ICS ) /(VP_H - lBoundaryPts_L[0].x);
-	float lSlopeRight = (float)( VP_V -	mBASE_LINE_ICS ) /(VP_H - lBoundaryPts_R[0].x);
+	float lSlopeLeft =  (float)( mPURVIEW_LINE_ICS - 	mBASE_LINE_ICS ) /(Lane.boundaryLeft[1] - Lane.boundaryLeft[0]);
+	float lSlopeRight =  (float)( mPURVIEW_LINE_ICS - 	mBASE_LINE_ICS ) /(Lane.boundaryRight[1] - Lane.boundaryRight[0]);
+
 
 	lBoundaryPts_L.push_back(lBoundaryPts_L[0]);
 	lBoundaryPts_L[1].x  += 	-round((mBASE_LINE_ICS) / lSlopeLeft);

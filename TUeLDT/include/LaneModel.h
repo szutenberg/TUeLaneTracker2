@@ -64,6 +64,10 @@ public:
 	float   	width_cm;
 	float   	confidence;
 
+	vector<cv::Point> candR;
+	vector<float> valR;
+	vector<cv::Point> candL;
+	vector<float> valL;
 	LaneModel(){}
 	LaneModel(const vector<float> lookAhead_cm):
 		   lookAheadPts_cm(lookAhead_cm),

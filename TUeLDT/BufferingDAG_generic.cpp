@@ -259,7 +259,7 @@ mProfiler.start("COMPUTE_PROBABILITIES");
 	mTempProbMat = mTempProbMat + 60;
 	divide(mProbMap_GradDir, mTempProbMat, mProbMap_GradDir, 255, -1);
 	subtract(255, mProbMap_GradDir, mProbMap_GradDir, cv::noArray(), -1);
-
+	//mProbMap_GradDir = 255;
 	
 	//Final Probability Map
 	multiply(mBufferPool->Probability[mBufferPos], mProbMap_GradDir, mBufferPool->Probability[mBufferPos]);

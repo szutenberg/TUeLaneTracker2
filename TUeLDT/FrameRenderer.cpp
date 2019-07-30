@@ -68,8 +68,9 @@ void FrameRenderer::drawLane(const cv::UMat& FRAME, const LaneModel& Lane)
    lBoundaryPts_R.push_back( Point( Lane.boundaryRight[0] + mO_ICCS_ICS.x, mBASE_LINE_ICS) );
    lBoundaryPts_M.push_back( (lBoundaryPts_L[0] + lBoundaryPts_R[0])/2.0 );
 
-   float lSlopeLeft =  (float)( VP_V - 	mBASE_LINE_ICS ) /(VP_H - lBoundaryPts_L[0].x);
-   float lSlopeRight = (float)( VP_V -	mBASE_LINE_ICS ) /(VP_H - lBoundaryPts_R[0].x);
+   float lSlopeLeft =  (float)( mPURVIEW_LINE_ICS - 	mBASE_LINE_ICS ) /(Lane.boundaryLeft[1] - Lane.boundaryLeft[0]);
+   float lSlopeRight =  (float)( mPURVIEW_LINE_ICS - 	mBASE_LINE_ICS ) /(Lane.boundaryRight[1] - Lane.boundaryRight[0]);
+
 
    lBoundaryPts_L.push_back(lBoundaryPts_L[0]);
    lBoundaryPts_L[1].x  += 	-round((mBASE_LINE_ICS * lRatioLookAhead) / lSlopeLeft);

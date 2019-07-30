@@ -19,7 +19,7 @@
 
 #include "TrackingLaneDAG_generic.h"
 #include "ScalingFactors.h"
-
+using namespace cv;
 TrackingLaneDAG_generic::TrackingLaneDAG_generic(BufferingDAG_generic&& bufferingGraph)
 : 
   BufferingDAG_generic(std::move(bufferingGraph)),
@@ -48,6 +48,8 @@ TrackingLaneDAG_generic::TrackingLaneDAG_generic(BufferingDAG_generic&& bufferin
 }
 
 int previousModel = 0;
+cv::Point lastPosL, lastPosR;
+int trackingCnt = 0;
 
 cv::Mat oldBaseHist;
 cv::Mat mDepthTemplate2;
@@ -98,69 +100,20 @@ int TrackingLaneDAG_generic::init_DAG(LaneFilter* laneFilter, VanishingPtFilter*
   	return 0;
 }
 
+const int STAB_BUF_LEN = 5;
+Point sBufR[STAB_BUF_LEN];
+Point sBufL[STAB_BUF_LEN];
+int sBufIt = 0;
+
+int stabilityCounter = 0;
+int tracking = 0;
+const int DIR_MARGIN = 50;
+
 
 void TrackingLaneDAG_generic::execute(cv::UMat& FrameGRAY)
 {
 
 	BufferingDAG_generic::execute(FrameGRAY);
-
-
-
-#ifdef PROFILER_ENABLED
-mProfiler.start("SETUP_ASYNC_FILTERING");
-#endif
-	mFuture = std::async(std::launch::async, [this]
-	{
-	   int64_t lSUM;
-
-
-	   WriteLock  lLock(_mutex, std::defer_lock);	
-
-	   //Predict Lane States
-	   lLock.lock();	
-	    mLaneFilter->filter.convertTo(mLaneFilter->filter, CV_64F);
-	    boxFilter(mLaneFilter->filter, mTransitLaneFilter, -1, cv::Size(5,5), cv::Point(-1,-1), false, cv::BORDER_REPLICATE );
-    	    mLaneFilter->filter.convertTo(mLaneFilter->filter, CV_32S);
-
-    	//    cerr << "mLaneFilter->filter" << mLaneFilter->filter.cols << " x " << mLaneFilter->filter.rows << "\n";
-    	//    cerr << "mTransitLaneFilter" << mTransitLaneFilter.cols << " x " << mTransitLaneFilter.rows << "\n";
-
-	    lSUM = sum(mTransitLaneFilter)[0];
-
-	    mTransitLaneFilter= mTransitLaneFilter*SCALE_FILTER;
-	    mTransitLaneFilter.convertTo(mTransitLaneFilter, CV_32S, 1.0/lSUM);
-	    mTransitLaneFilter = 	mTransitLaneFilter + 0.1*mLaneFilter->prior;
-
-
-	   //Predict VP States
-	    mVpFilter->filter.convertTo(mVpFilter->filter, CV_64F);
-	    boxFilter(mVpFilter->filter, mTransitVpFilter, -1, cv::Size(3,3), cv::Point(-1,-1), false, cv::BORDER_REPLICATE );
-    	    mVpFilter->filter.convertTo(mVpFilter->filter, CV_32S);
-
-    //	    cerr << "mVpFilter->filter" << mVpFilter->filter.cols << " x " << mVpFilter->filter.rows << "\n";
-    //	    cerr << "mTransitVpFilter" << mTransitVpFilter.cols << " x " << mTransitVpFilter.rows << "\n";
-
-	    lSUM = sum(mTransitVpFilter)[0];
-	    mTransitVpFilter= mTransitVpFilter*SCALE_FILTER;
-	    mTransitVpFilter.convertTo(mTransitVpFilter, CV_32S, 1.0/lSUM);	
-	    mTransitVpFilter = mTransitVpFilter + 0.1*mVpFilter->prior;
-
-	   lLock.unlock();
-
-	});
-
-#ifdef PROFILER_ENABLED
-mProfiler.end();
-LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
-				<<"******************************"<<endl
-				<<  "Setting up async task for filtering LaneFilter." <<endl
-				<<  "Max Time: " << mProfiler.getMaxTime("SETUP_ASYNC_FILTERING")<<endl
-				<<  "Avg Time: " << mProfiler.getAvgTime("SETUP_ASYNC_FILTERING")<<endl
-				<<  "Min Time: " << mProfiler.getMinTime("SETUP_ASYNC_FILTERING")<<endl
-				<<"******************************"<<endl<<endl;	
-				#endif
-
-
 
 
 #ifdef PROFILER_ENABLED
@@ -303,10 +256,11 @@ mProfiler.start("COMPUTE_HISTOGRAMS");
 
 	cv::Point min_loc, max_loc;
 	double min, max;
-	cv::minMaxLoc(mIntWeights, &min, &max, &min_loc, &max_loc);
-	cout << "Max value: " << max << endl;
+	//cv::minMaxLoc(mIntWeights, &min, &max, &min_loc, &max_loc);
+	//cout << "Max value: " << max << endl;
+	cv::Mat hist2dr = cv::Mat::zeros(DIR_MARGIN*2 + 1, mHistBase.rows, CV_32S);
+	cv::Mat hist2dl = cv::Mat::zeros(DIR_MARGIN*2 + 1, mHistBase.rows, CV_32S);
 
-	{
 		int32_t* 	lPtrIntBase 	    = mIntBase.ptr<int32_t>(0);
 		int32_t* 	lPtrIntPurview      = mIntPurview.ptr<int32_t>(0);
 		int32_t* 	lPtrIntFar          = mIntFar.ptr<int32_t>(0);
@@ -318,12 +272,14 @@ mProfiler.start("COMPUTE_HISTOGRAMS");
 		int32_t* 	lPtrHistPurview     =  mHistPurview.ptr<int32_t>(0);
 		int32_t* 	lPtrHistFar         =  mHistFar.ptr<int32_t>(0);
 
-		uint16_t   	lBaseBinIdx;
-		uint16_t   	lPurviewBinIdx;
-		uint16_t   	lFarBinIdx;
-		cv::Mat hist2dr = cv::Mat::zeros(mHistBase.rows, mHistBase.rows, CV_32S);
-		cv::Mat hist2dl = cv::Mat::zeros(mHistBase.rows, mHistBase.rows, CV_32S);
+		int16_t   	lBaseBinIdx;
+		int16_t   	lPurviewBinIdx;
+		int16_t   	lFarBinIdx;
 
+		mPtrLaneModel->candL.clear();
+		mPtrLaneModel->candR.clear();
+		mPtrLaneModel->valL.clear();
+		mPtrLaneModel->valR.clear();
 
 		for (int i = 0; i < mMAX_PIXELS_ROI; i++,lPtrIntBase++,lPtrIntPurview++, lPtrIntFar++, lWeightBin++ , lPtrMask++)
 		{
@@ -338,27 +294,202 @@ mProfiler.start("COMPUTE_HISTOGRAMS");
 				*(lPtrHistBase       + lBaseBinIdx   )  	+= *lWeightBin;
 				*(lPtrHistPurview    + lPurviewBinIdx)      += *lWeightBin;
 
-				if (lBaseBinIdx < mHistBase.rows/2) hist2dl.at<int32_t>(lBaseBinIdx, lPurviewBinIdx) += *lWeightBin;
-				else hist2dr.at<int32_t>(lBaseBinIdx, lPurviewBinIdx) += *lWeightBin;
+
+				int16_t y = DIR_MARGIN + lPurviewBinIdx - lBaseBinIdx;
+				int16_t x = lBaseBinIdx;
+
+				if (y >= hist2dr.rows) continue;
+				if (x >= hist2dr.cols) continue;
+				if (x < 0) continue;
+				if (y < 0) continue;
+
+				if (lBaseBinIdx < mHistBase.rows/2) hist2dl.at<int32_t>(y, x) += *lWeightBin;
+				else hist2dr.at<int32_t>(y, x) += *lWeightBin;
 
 				if (lFarBinIdx < mHistBase.rows)
 				{
 					*(lPtrHistFar   + lFarBinIdx)      += *lWeightBin;
 				}
-
-
 			}
+		}
+
+        Mat histR, histL;
+		double maxL, maxR;
+
+		cv::minMaxLoc(hist2dl, &min, &maxL, &min_loc, &max_loc);
+	    cv::minMaxLoc(hist2dr, &min, &maxR, &min_loc, &max_loc);
+
+        hist2dr.convertTo(histR, CV_64F, 1.0/maxR);
+        hist2dl.convertTo(histL, CV_64F, 1.0/maxL);
+
+
+	    {
+	        Mat kernel;
+
+	        kernel = Mat::zeros( 3, 3, CV_64F );
+
+			double sum = (1 + 2 + 4 + 2 + 1);
+			kernel.at<double>(0,0) = 0;
+			kernel.at<double>(0,1) = 1;
+			kernel.at<double>(0,2) = 0;
+			kernel.at<double>(1,0) = 2;
+			kernel.at<double>(1,1) = 4;
+			kernel.at<double>(1,2) = 2;
+			kernel.at<double>(2,0) = 0;
+			kernel.at<double>(2,1) = 1;
+			kernel.at<double>(2,2) = 0;
+			kernel /= sum;
+
+	        filter2D(histR, histR, CV_64F , kernel);
+	        filter2D(histL, histL, CV_64F , kernel);
+
+
+	        kernel = Mat::zeros(1, 5, CV_64F);
+	        kernel.at<double>(0, 0) = -1;
+	        kernel.at<double>(0, 1) = -1;
+	        kernel.at<double>(0, 2) = 2;
+	        kernel.at<double>(0, 3) = 1;
+	        kernel.at<double>(0, 4) = 1;
+
+	        filter2D(histR, histR, CV_64F , kernel);
+	        kernel.at<double>(0, 0) = 1;
+	        kernel.at<double>(0, 1) = 1;
+	        kernel.at<double>(0, 2) = 2;
+	        kernel.at<double>(0, 3) = -1;
+	        kernel.at<double>(0, 4) = -1;
+	        filter2D(histL, histL, CV_64F , kernel);
+	    }
+
+
+        // Apply filter
+
+    	cv::minMaxLoc(histL, &min, &maxL, &min_loc, &max_loc);
+    	histL /= maxL;
+
+    	cv::minMaxLoc(histR, &min, &maxR, &min_loc, &max_loc);
+    	histR /= maxR;
+
+
+    	Mat hist;
+    	add(histL, histR, hist, noArray(), CV_32F);
+
+    	imshow("hist Final", hist);
+
+    	double totalMax = (maxL > maxR)?maxL:maxR;
+		const int CAND_AMT = 20;
+
+		cv::Point candR[CAND_AMT];
+		double valR[CAND_AMT];
+		cv::Point candL[CAND_AMT];
+		double valL[CAND_AMT];
+
+		for (int i = 0; i < CAND_AMT; i++)
+		{
+			cv::minMaxLoc(histR, &min, &max, &min_loc, &max_loc);
+
+			//hist2dr.at<int32_t>(max_loc.y, max_loc.x) = 1;
+
+			candR[i] = max_loc+ Point(0, max_loc.x - DIR_MARGIN);
+			valR[i] = max/maxR;
+
+			mPtrLaneModel->candR.push_back(max_loc + Point(0, max_loc.x - DIR_MARGIN));
+			mPtrLaneModel->valR.push_back(valR[i]);
+		}
+
+		for (int i = 0; i < CAND_AMT; i++)
+		{
+			cv::minMaxLoc(histL, &min, &max, &min_loc, &max_loc);
+
+			//hist2dl.at<int32_t>(max_loc.y, max_loc.x) = 1;
+
+			candL[i] = max_loc+ Point(0, max_loc.x - DIR_MARGIN);
+			valL[i] = max/maxL;
+
+			mPtrLaneModel->candL.push_back(max_loc+ Point(0, max_loc.x - DIR_MARGIN));
+			mPtrLaneModel->valL.push_back(valL[i]);
+		}
+		double maxP = -1;
+		int mR, mL;
+		const auto& lBINS_cm   = mLaneFilter->BINS_cm;
+
+		for (int l = 0; l < CAND_AMT; l++)
+		{
+			for (int r = 0; r < CAND_AMT; r++)
+			{
+
+				int widthCm = (lBINS_cm( candR[r].x) - lBINS_cm(candL[l].x));
+				if (widthCm < mLaneFilter->LANE.MIN_WIDTH) continue;
+				if (widthCm > mLaneFilter->LANE.MAX_WIDTH) continue;
+
+
+				int widthBase = candR[r].x - candL[l].x;
+				int widthPur = candR[r].y - candL[l].y;
+
+				double widthDif = widthPur - widthBase;
+
+				double widthP = exp(-widthDif * widthDif / 60.0);
+
+				double prob = valR[r] * valL[l] * widthP;
+
+				if (prob > maxP)
+				{
+					maxP = prob;
+					mR = r;
+					mL = l;
+				}
+			}
+		}
+
+	//	cout << "prob = " << maxP << "\t" << bestWidthP << "\t" << maxL << "\t" << maxR << endl;
+
+		int  lIdxBase_LB 	= candL[mL].x;
+		int  lIdxBase_RB 	= candR[mR].x;
+
+
+		mIdxPurview_RB = candR[mR].y;
+		mIdxPurview_LB = candL[mL].y;
+
+
+		sBufR[sBufIt] = candR[mR];
+		sBufL[sBufIt] = candL[mL];
+
+		int stable = 1;
+		for (int i = 0; i < STAB_BUF_LEN; i++)
+		{
+			int a = abs(sBufR[sBufIt].x - sBufR[i].x);
+			int c = abs(sBufL[sBufIt].x - sBufL[i].x);
+
+			if (a > 2) stable = 0;
+			if (c > 2) stable = 0;
+		}
+
+		stabilityCounter++;
+		stabilityCounter *= stable;
+
+		cout << (stable?"STABLE":"UNSTABLE") << "   " << stabilityCounter << endl;
+		sBufIt = (sBufIt + 1)%STAB_BUF_LEN;
+
+
+		if ((!tracking) && (stabilityCounter > 15)) tracking = 1;
+
+		if (tracking)
+		{
+
+
+
+
+
+
+
+
+
+
 
 		}
 
-		cv::minMaxLoc(hist2dr, &min, &max, &min_loc, &max_loc);
-		hist2dr *= 16;
-		hist2dl *= 16;
 
-		imshow("hist2dr", hist2dr);
-		imshow("hist2dl", hist2dl);
 
-	}//Block Ends
+	//Block Ends
 
 #ifdef PROFILER_ENABLED
 mProfiler.end();
@@ -428,7 +559,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
 mProfiler.start("NORMALIZE_HISTOGRAM");
 #endif
 	{   
-   	    int64_t lSUM = 0;
+ /*  	    int64_t lSUM = 0;
 	    //Normalising Base Histogram
 	    lSUM = sum(mHistBase)[0] ;
 	    mHistBase.convertTo(mHistBase_CV64F, CV_64F, SCALE_FILTER);
@@ -442,7 +573,7 @@ mProfiler.start("NORMALIZE_HISTOGRAM");
 	    //Normalising Far Histogram
 	    lSUM = sum(mHistFar)[0];
 	    mHistFar.convertTo(mHistFar_CV64F, CV_64F, SCALE_FILTER);
-	    mHistFar_CV64F.convertTo(mHistFar, CV_32S, 1.0/lSUM );
+	    mHistFar_CV64F.convertTo(mHistFar, CV_32S, 1.0/lSUM );*/
 	}
 	
 #ifdef PROFILER_ENABLED
@@ -463,217 +594,10 @@ mProfiler.start("HISTOGRAM_MATCHING");
 #endif
 
 
-//mTransitLaneFilter.at<int32_t>(lRowIdx, lColIdx)
 
-cv::Mat mTransitLaneFilter2;
-mTransitLaneFilter.convertTo(mTransitLaneFilter2, CV_16U, 128);
-		imshow("mTransitLaneFilter", mTransitLaneFilter2);
+//vector<BaseHistogramModel>& Models	= mLaneFilter->baseHistogramModels;
 
-if (oldBaseHist.rows == 0) mHistBase.copyTo(oldBaseHist);
-
-
-{
-	int32_t   	lBestModelIdx = -1;
-	int32_t* 	lPtrHistBase  = nullptr;
-	cv::Mat    	lRange;
-	cv::Mat probNB = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
-	cv::Mat leftP = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
-	cv::Mat rightP = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
-	cv::Mat probF = cv::Mat::zeros(mLaneFilter->filter.rows, mLaneFilter->filter.cols, CV_32F);
-
-	mPosterior		= 0;
-	mMaxPosterior  	= 0;
-
-	vector<BaseHistogramModel>& Models	= mLaneFilter->baseHistogramModels;
-	lPtrHistBase			=  mHistBase.ptr<int32_t>(0);
-
-
-	for(size_t i=0; i< Models.size(); i++)
-	{
-
-		int& lIdx_LB    	 = Models[i].binIdxBoundary_left;
-		int& lIdx_RB		 = Models[i].binIdxBoundary_right;
-
-		int& lIdx_NLB	 	 = Models[i].binIdxNonBoundary_left;
-		int& lIdx_NRB    	 = Models[i].binIdxNonBoundary_right;
-
-		int& lCount_NLB      = Models[i].nonBoundaryBinsCount_left;
-		int& lCount_NRB		 = Models[i].nonBoundaryBinsCount_right;
-
-		size_t lRowIdx = Models[i].rowIdxFilter;
-		size_t lColIdx = Models[i].colIdxFilter;
-
-		mLikelihood_LB = lPtrHistBase[lIdx_LB-1]*0.25 + lPtrHistBase[lIdx_LB];
-		mLikelihood_RB = lPtrHistBase[lIdx_RB+1]*0.25 + lPtrHistBase[lIdx_RB];
-		mConditionalProb  	=  (mLikelihood_LB *mLikelihood_RB)/(float)SCALE_FILTER;
-
-		mInvCorrelationNB = (double)sum(mHistBase(cv::Range(lIdx_LB + 5, lIdx_RB - 5 +1 ), cv::Range::all()) )[0] / (lIdx_RB - 5 +1 - (lIdx_LB + 5)) * 100.0;
-
-		double x= (double)mInvCorrelationNB / SCALE_FILTER ;
-		mLikelihood_NB = mLaneMembership.NEG_BOUNDARY_NORMA*exp(-x*x/mLaneMembership.NEG_BOUNDARY_NOMIN );
-
-		mConditionalProb  *= mLikelihood_NB;
-
-
-
-		probNB.at<float>(lRowIdx, lColIdx) = mLikelihood_NB;
-		leftP.at<float>(lRowIdx, lColIdx) = mLikelihood_LB/sqrt((float)SCALE_FILTER) / 20.0;
-		rightP.at<float>(lRowIdx, lColIdx) = mLikelihood_RB/sqrt((float)SCALE_FILTER) / 20.0;
-		probF.at<float>(lRowIdx, lColIdx) = mConditionalProb / 100.0;
-
-
-		mPosterior = mConditionalProb *  mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) ;
-
-
-		mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) = mLaneFilter->filter.at<int32_t>(lRowIdx, lColIdx) * 0.9 + 0.1 * mConditionalProb;
-
-		//Keep track of the best Model
-		if(mPosterior > mMaxPosterior)
-		{
-			mMaxPosterior = mPosterior;
-			lBestModelIdx = i;
-		}
-
-	} //Loop over all BaseHistogram Models
-		
-
-	   imshow("probNB", probNB);
-	   imshow("leftP", leftP);
-	   imshow("rightP", rightP);
-	   imshow("probF", probF);
-
-
-
-
-	   if (mMaxPosterior != 0)
-	   {
-	      mBaseHistModel = Models[lBestModelIdx];
-	   }
-	   //cout <<  mTransitLaneFilter.at<int32_t>(Models[lBestModelIdx].rowIdxFilter, Models[lBestModelIdx].colIdxFilter);
-
-	   int prevLeft = Models[previousModel].binIdxBoundary_left;
-	   int curLeft = Models[lBestModelIdx].binIdxBoundary_left;
-	   int prevRight = Models[previousModel].binIdxBoundary_right;
-	   int curRight = Models[lBestModelIdx].binIdxBoundary_right;
-
-
-	  // cout << curLeft - prevLeft << "\t" << curRight - prevRight << "\n";
-/*
-	   if ( (abs(prevLeft - curLeft) > 1) || (abs(prevRight - curRight) > 1))
-	   {
-		   //cout << "Detection failed!\n";
-
-		   double cor[20][2];
-		   int32_t* 	oldHist  = oldBaseHist.ptr<int32_t>(0);
-		   int32_t* 	curHist  = mHistBase.ptr<int32_t>(0);
-
-		   cv::Mat newHist;
-
-		   mHistBase.copyTo(newHist);
-		   newHist *= 0;
-
-		   int32_t* newHistPtr = newHist.ptr<int32_t>(0);
-
-		   for (int i = 3; i < newHist.rows/2; i++)
-		   {
-			   newHistPtr[i] = curHist[i] + curHist[i-1] + curHist[i-2];
-		   }
-
-		   for (int i = newHist.rows/2; i < newHist.rows - 3; i++)
-		   {
-			   newHistPtr[i] = curHist[i] + curHist[i+1] + curHist[i+2];
-		   }
-
-		   int leftNoise = curHist[curLeft - 3];
-		   if (leftNoise < newHistPtr[curLeft + 3]) leftNoise = curHist[curLeft + 3];
-
-		   int rightNoise = curHist[curRight - 3];
-		   if (rightNoise < curHist[curRight + 3]) rightNoise = curHist[curRight + 3];
-
-		   cout << "confLeft = " << (float)curHist[curLeft]/leftNoise << "\t confRight = " << (float)curHist[curRight]/rightNoise << endl;
-
-		   // We are considering changes +/- 5 bins
-
-
-		   double score[133];
-		   int dR[133], dL[133];
-		   for (int i = 0; i < 133; i++)
-		   {
-			   if (i <= 11)
-			   {
-				   int dif = i - 5;
-				   dR[i] = dL[i] = dif;
-				   score[i] = curHist[prevLeft + dif] * curHist[prevRight + dif] * exp(-dif*dif/200.0);
-			   }
-			   else if (i <= 11 + 11 * 11)
-			   {
-				   int difL = (i - 12)/11 - 5;
-				   int difR = (i - 12)%11 - 5;
-				   dR[i] = difR;
-				   dL[i] = difL;
-
-				   int dif = abs(difL - difR);
-				   score[i] = curHist[prevLeft + difL] * curHist[prevRight + difR] * exp(-dif*dif/200.0) * exp(-(difL-dif)*(difL-dif)/200.0) * exp(-(difR-dif)*(difR-dif)/200.0);
-			   }
-
-		   }
-		   double maxVal = 0;
-		   int maxI;
-		   for (int i = 0; i < 133; i++)
-		   {
-			   double value = score[i];
-			   if (value > maxVal) maxVal = value, maxI = i;
-
-			   //cout << i << "\t" << (int)value << endl;
-		   }
-
-		   int newLeft = prevLeft + dL[maxI];
-		   int newRight = prevRight + dR[maxI];
-
-
-		   int sumF = sum(mVpFilter->filter)[0];
-		   int mV = 0;
-		   for (int x = 0; x < mVpFilter->filter.cols; x++)
-		   {
-			   for (int y = 0; y < mVpFilter->filter.rows; y++)
-			   {
-				   int val = mVpFilter->filter.at<int32_t>(y, x);
-				   if (mV < val) mV = val;
-			   }
-		   }
-
-		   //cout << "VP: " <<  (int)(sumF / mV) << endl;
-
-		   if ((sumF / mV) < 50)
-		   {
-			   for(size_t i=0; i< Models.size(); i++)
-			   {
-				   if ((Models[i].binIdxBoundary_left == newLeft) && (Models[i].binIdxBoundary_right == newRight))
-				   {
-					   lBestModelIdx = i;
-						  mBaseHistModel = Models[lBestModelIdx];
-
-					   cout << "\t" << dL[maxI] << "\t" << dR[maxI];
-
-
-				   }
-			   }
-			   cout << endl;
-		   }
-		   else cout << "Anomaly at VP - we need to detect again\n";
-	   }
-	   else
-	   {
-		   cout << "\tOK\n";
-	   }
-
-*/
-
-	   previousModel = lBestModelIdx;
-	}//Scope End
-
-
-
+//mBaseHistModel = Models[2];
 
 
 
@@ -712,204 +636,7 @@ LOG_INFO_(LDTLog::TIMING_PROFILE)<<endl
 
 
 
-#ifdef PROFILER_ENABLED
-mProfiler.start("VP_HISTOGRAM_MATCHING");
-#endif
-	{
-	   const int& 	  lBASE_LB  		= mBaseHistModel.boundary_left;	
-	   const int& 	  lBASE_RB 		= mBaseHistModel.boundary_right;
-	   const int& 	  lBASE_Y		= mLaneFilter->BASE_LINE_ICCS;
-	   const int& 	  lPURV_Y		= mLaneFilter->PURVIEW_LINE_ICCS;
-		
-	   const float&	  lSTEP_cm		= mLaneFilter->BINS_STEP_cm;
-	   const float&   lMAX_WIDTH		= mLaneFilter->LANE.MAX_WIDTH;
-	   const float&	  lMIN_WIDTH		= mLaneFilter->LANE.MIN_WIDTH;	
-	   const float&   lWIDTH_MARK		= mLaneFilter->LANE.AVG_WIDTH_LM;
-	
-	   int32_t	  lIntSecLeft, lIntSecRight, lWidth_cm;
-	   int32_t	  lIdx_LB, lIdx_RB;
-	   int32_t  	  lIdx_Mid, lIdx_NLB, lIdx_NRB, lCount_NLB, lCount_NRB;
-	   
-	   cv::Mat   	  lRange;
 
-	   const size_t   lIDX_MARK = floor(lWIDTH_MARK/lSTEP_cm) ;
-
-
-	   mPosterior	 = 0;	
-	   mMaxPosterior = 0;
-
-	   // Save current values of VP 
-	   mVanishPt.V_prev = mVanishPt.V;
-	   mVanishPt.H_prev = mVanishPt.H;
-	
-	   int32_t* 	lPtrHistPurview  = mHistPurview.ptr<int32_t>(0);
-
-	   int selWidth_cm;
-	   for(int v=0; v < mVpFilter->COUNT_BINS_V;v++)
-	   {	for(int h=0; h < mVpFilter->COUNT_BINS_H; h++)
-		{
-
-		   const int&   lBIN_V 	= mVpFilter->BINS_V(v);
-		   const int&   lBIN_H 	= mVpFilter->BINS_H(h);
-		   const auto&  lSTEP	= mSTEP_PURVIEW_SCALED;
-		
-		   // x=1/m*(y-c) + x0
-		   lIntSecLeft  = SCALE_INTSEC*( ((lBIN_H - lBASE_LB)/(float)(lBIN_V - lBASE_Y))*(lPURV_Y - lBIN_V) +lBIN_H );
-		   lIntSecRight = SCALE_INTSEC*( ((lBIN_H - lBASE_RB)/(float)(lBIN_V - lBASE_Y))*(lPURV_Y - lBIN_V) +lBIN_H );
-
-		   lIdx_LB 	= ( lIntSecLeft  - mLOWER_LIMIT_PURVIEW + (lSTEP/2) )/lSTEP;
-		   lIdx_RB 	= ( lIntSecRight - mLOWER_LIMIT_PURVIEW + (lSTEP/2) )/lSTEP;
-
-	   	   lIdx_Mid    = round((lIdx_LB + lIdx_RB)/2.0 );
-	   	   lCount_NLB  = (lIdx_Mid - lIDX_MARK) - (lIdx_LB  + lIDX_MARK) -1;
-	   	   lCount_NRB  = (lIdx_RB  - lIDX_MARK) - (lIdx_Mid + lIDX_MARK) -1;
-
-					   
-		   if ( (lIdx_LB > 0) &&  (lIdx_RB < (int32_t)(mLaneFilter->COUNT_BINS -1) ) && (lCount_NLB>0) && (lCount_NRB>0) )
-		   {			
-
-		      lWidth_cm= mLaneFilter->BINS_cm(lIdx_RB) - mLaneFilter->BINS_cm(lIdx_LB);
-
-			/*
-		   	{
-
-	   		 int 	  	lPURV_LB  		= mLaneFilter->PURVIEW_BINS.at<int32_t>(lIdx_LB,0);	
-	   		 int 	  	lPURV_RB 		= mLaneFilter->PURVIEW_BINS.at<int32_t>(lIdx_RB,0);
-
-			  cv::Mat Frame;
-			  cv::cvtColor(FrameGRAY, Frame, CV_GRAY2BGR);
-
-		    	  size_t lCOUNT_BINS 		= mLaneFilter->COUNT_BINS;
-			  int    lBASE_LINE_ICS		= mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
-			  int    lPURVIEW_LINE_ICS	= mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y;
-		    
-		    	  // Draw Histogram-Bins at the Base
-		    	  for (size_t i=0; i < lCOUNT_BINS; i++)
-		    	  {
-			    int x =  mLaneFilter->BASE_BINS.at<int32_t>(i,0) + mLaneFilter->O_ICCS_ICS.x ;
-
-			    if ((x== lBASE_LB + mLaneFilter->O_ICCS_ICS.x) | (x== lBASE_RB + mLaneFilter->O_ICCS_ICS.x))
-			    {
-			    	cv::line(Frame, cv::Point(x, lBASE_LINE_ICS), cv::Point(x,lBASE_LINE_ICS - 60), 
-				     cv::Scalar(0,0,255), 1);
-			    }
-			    else
-			    {
-			    	cv::line(Frame, cv::Point(x, lBASE_LINE_ICS), cv::Point(x,lBASE_LINE_ICS - 30),
-				cv::Scalar(0,0,0), 1);
-			    }
-		    	  }
-
-		    	  // Draw Histogram-Bins at the Purview
-		    	  for (size_t i=0; i < lCOUNT_BINS; i++)
-		    	  {
-			    	int x; 
-
-				x = mLaneFilter->PURVIEW_BINS.at<int32_t>(i,0) + mLaneFilter->O_ICCS_ICS.x;
-
-			    	 cv::line(Frame, cv::Point(x, lPURVIEW_LINE_ICS), cv::Point(x, lPURVIEW_LINE_ICS - 30),
-				 cvScalar(0,0,0), 1);
-
-				 x= lPURV_LB + mLaneFilter->O_ICCS_ICS.x;
-
-			    	 cv::line(Frame, cv::Point(x, lPURVIEW_LINE_ICS), cv::Point(x, lPURVIEW_LINE_ICS - 60),
-				 cvScalar(0,0,255), 1);
-
-
-				 x= lPURV_RB + mLaneFilter->O_ICCS_ICS.x;
-
-			    	 cv::line(Frame, cv::Point(x, lPURVIEW_LINE_ICS), cv::Point(x, lPURVIEW_LINE_ICS - 60),
-				 cvScalar(0,0,255), 1);
-		    	  }
-
-
-		    	  // Draw lines to Vanishing Point
-		    	  for (size_t i=0; i < lCOUNT_BINS; i++)
-		    	  {
-			       int  x		=  lBASE_LB + mLaneFilter->O_ICCS_ICS.x ;
-			       auto VPt_ICS	=  cv::Point(lBIN_H + mLaneFilter->O_ICCS_ICS.x, lBIN_V + mLaneFilter->O_ICCS_ICS.y);
-
-			       cv::line(Frame, cv::Point(x, lBASE_LINE_ICS), VPt_ICS, cvScalar(0,255,0), 2);
-
-			       x =  lBASE_RB + mLaneFilter->O_ICCS_ICS.x ;
-			       cv::line(Frame, cv::Point(x, lBASE_LINE_ICS), VPt_ICS, cvScalar(0,255,0), 2);
-		    	  }
-
-     		    	  cv::imshow( "Test VanishgingPt", Frame);
-     		    	  while(cv::waitKey(10) != 32);
-
-		          cout<< "Width_cm at Base " <<mBaseHistModel.width_cm<<" 	Width_cm at Purview"<<lWidth_cm<<endl;
-		   	}*/
-
-		      if(lMIN_WIDTH< lWidth_cm && lWidth_cm < lMAX_WIDTH)
-		      {
-
-		   	 lIdx_NLB    = lIdx_LB   + lIDX_MARK;
-		   	 lIdx_NRB    = lIdx_RB   - lCount_NRB;	
-
-		         // VP Probability over lane width difference between base and purview line
-		         mLikelihood_W     = mLaneMembership.WIDTH_DIFF_NORMA;
-		         mLikelihood_W    *= exp(-pow(mBaseHistModel.width_cm - lWidth_cm, 2) / mLaneMembership.WIDTH_DIFF_NOMIN );
-		
-		         // VP Probability over left lane boundary
-		         mLikelihood_LB       =  round(lPtrHistPurview[lIdx_LB-1]*0.25
-					      + lPtrHistPurview[lIdx_LB]
-				  	      + lPtrHistPurview[lIdx_LB+1]*0.25);
-												  
-		         // VP Probability over Right LaneBoundary 				 
-		         mLikelihood_RB       = round(lPtrHistPurview[lIdx_RB-1]*0.25
-					      + lPtrHistPurview[lIdx_RB]
-					      + lPtrHistPurview[lIdx_RB+1]*0.25);
-					
-		     	 mConditionalProb     =  (mLikelihood_LB*mLikelihood_RB) /(float)SCALE_FILTER;
-		
-		      	 //VP Probability over Non-Boundary Region
-		      	 mInvCorrelationNB   = 0;
-		      	 //cerr << "TrackingLaneDAG" << ":" << __LINE__ << "\t" << lIdx_LB << "\t" << lIdx_RB << "\n";
-
-		      	 lRange 	  = mHistPurview(cv::Range(lIdx_NLB, lIdx_NLB + lCount_NLB), cv::Range::all());
-		      	 mInvCorrelationNB   +=sum(lRange)[0];
-			
-		         lRange 	  = mHistPurview(cv::Range(lIdx_NRB, lIdx_NRB + lCount_NRB), cv::Range::all());
-		         mInvCorrelationNB   +=sum(lRange)[0];
-
-		         //cerr << lIdx_NLB << "\t" << lIdx_NLB + lCount_NLB << "\t\t" << lIdx_NRB << "\t" << lIdx_NRB + lCount_NRB << "\n";
-		
-		         mLikelihood_NB	   = mLaneMembership.NEG_BOUNDARY_NORMA;
-		         mLikelihood_NB   *= exp(-pow( mInvCorrelationNB/(float)SCALE_FILTER , 2)/mLaneMembership.NEG_BOUNDARY_NOMIN);
-											 				 
-		         //Conditional Probability			 
-		         mConditionalProb  = mConditionalProb* mLikelihood_NB * mLikelihood_W;		
-		         mPosterior 	   = round(mConditionalProb * mTransitVpFilter.at<int32_t>(v ,h));
-			
-		         mVpFilter->filter.at<int32_t>(v, h) = mPosterior;
-
-		         if(mPosterior > mMaxPosterior)
-		         {
-			    mMaxPosterior	= mPosterior;
-			    mVanishPt.V 	= lBIN_V;
-			    mVanishPt.H 	= lBIN_H;
-  			    mIdxPurview_LB  	= lIdx_LB;
-  			    mIdxPurview_RB  	= lIdx_RB;
-  			  selWidth_cm = lWidth_cm;
-		         }//end, if posterior is greater than existing Max
-
-		      }//end, if Lane Width is in Range
-		   } //end, if Intersections are not in the BIN-Range 
-				
-		 }//for-end			
-	     }//for-end
-
-	   //cerr << "width = " << selWidth_cm << " cm\n";
-		
-	     if (mMaxPosterior == 0)
-	     {
-		mVanishPt.V = mVanishPt.V_prev;
-		mVanishPt.H = mVanishPt.H_prev;
-	     }
-		
-	} // Scope Ends
-		
 #ifdef DEBUG_FRAMES
 {
 	const int MARGIN_WIDTH = 300;
@@ -963,23 +690,87 @@ LOG_INFO_(LDTLog::TIMING_PROFILE) <<endl
 				#endif
 
 
+//int  lIdxBase_LB 	= mBaseHistModel.binIdxBoundary_left;
+//int  lIdxBase_RB 	= mBaseHistModel.binIdxBoundary_right;
 
+/*
+mIdxPurview_RB = lIdxBase_RB;
+mIdxPurview_LB = lIdxBase_LB;
+
+if (trackingCnt++ > 10)
+{
+	cout << "Tracking!\n";
+	cv::Point hL(lastPosL.x, mHistBase.rows/2 + lastPosL.y - lastPosL.x);
+	cv::Point hR(lastPosR.x, mHistBase.rows/2 + lastPosR.y - lastPosR.x);
+
+	cout << hL << hR << endl;
+	int M = 4;
+	double probMax = -1;
+
+	for (int dLx = -M; dLx <= M; dLx++)
+		for (int dLy = -M; dLy <= M; dLy++)
+			for (int dRx = -M; dRx <= M; dRx++)
+				for (int dRy = -M; dRy <= M; dRy++)
+				{
+					cv::Point pL(hL+cv::Point(dLx, dLy));
+					cv::Point pR(hR+cv::Point(dRx, dRy));
+
+					if (pL.x < 0) continue;
+					if (pR.x < 0) continue;
+					if (pR.x >= mHistBase.rows) continue;
+					if (pR.y >= mHistBase.rows) continue;
+
+
+					double histR = hist2dr.at<int32_t>(pR.y, pR.x);
+					double histL = hist2dl.at<int32_t>(pL.y, pL.x);
+					double pLpos = 1;
+					double pRpos = 1;
+					if (dLx < 0) pLpos = exp(-dLx * dLx / 100.0 );
+					if (dRx > 0) pRpos = exp(-dRx * dRx / 100.0 );
+					double dW = dLy - dRy;
+					double pWidth = exp(-dW * dW / 100.0 );
+
+					double prob = histR * histL * pLpos * pRpos * pWidth;
+
+					if (prob > probMax)
+					{
+						probMax = prob;
+						lIdxBase_LB = pL.x;
+						lIdxBase_RB = pR.x;
+						mIdxPurview_RB = pR.y + pR.x - mHistBase.rows/2;
+						mIdxPurview_LB = pL.y + pL.x - mHistBase.rows/2;
+					}
+
+				}
+}
+
+
+
+*/
 
 #ifdef PROFILER_ENABLED
 mProfiler.start("ASSIGN_LANE_MODEL");
 #endif
 	{
 	   const auto& lBINS_cm   = mLaneFilter->BINS_cm;
-	   const auto& lBASE_LB	  = mBaseHistModel.boundary_left;
-	   const auto& lBASE_RB	  = mBaseHistModel.boundary_right;
 
-	   const int&  lIdxBase_LB 	= mBaseHistModel.binIdxBoundary_left;	
-	   const int&  lIdxBase_RB 	= mBaseHistModel.binIdxBoundary_right;
+
+
+
+	   const auto& lBASE_LB = mLaneFilter->BASE_BINS.at<int32_t>(lIdxBase_LB, 0);
+	   const auto& lBASE_RB = mLaneFilter->BASE_BINS.at<int32_t>(lIdxBase_RB, 0);
+
 
 	   const auto& lPURV_LB	  = mLaneFilter->PURVIEW_BINS.at<int32_t>(mIdxPurview_LB, 0);
 	   const auto& lPURV_RB	  = mLaneFilter->PURVIEW_BINS.at<int32_t>(mIdxPurview_RB, 0);
 
 	   float lLaneWidth	  = (lBINS_cm(mIdxPurview_RB) - lBINS_cm(mIdxPurview_LB));
+
+
+	   lastPosL = cv::Point(lIdxBase_LB, mIdxPurview_LB);
+	   lastPosR = cv::Point(lIdxBase_RB, mIdxPurview_RB);
+
+
 
 
 	   //Set LaneModel

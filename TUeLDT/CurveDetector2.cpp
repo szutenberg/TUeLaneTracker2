@@ -130,7 +130,7 @@ int CurveDetector2::run(TrackingLaneDAG_generic& tr, LaneModel* Lane, Mat input)
 
 
 		cv::cvtColor(FrameTest, FrameTest, cv::COLOR_GRAY2BGR);
-
+/*
 		float maxV = 0;
 		for (int v = 0; v < mVpFilter->BINS_V.size(); v++)
 		{
@@ -193,16 +193,26 @@ int CurveDetector2::run(TrackingLaneDAG_generic& tr, LaneModel* Lane, Mat input)
 			cv::line(FrameTest, cvPoint(x+MARGIN_WIDTH, y), cvPoint(x+MARGIN_WIDTH, y - val), cvScalar(150, 0, 0), 4);
 		}
 		line(FrameTest, vp+Point2f(MARGIN_WIDTH,-difY), vp+Point2f(MARGIN_WIDTH,-difY), cvScalar(0,255,0), 2);
-
-
-
+		*/
 		cv::line(FrameTest, lBase + Point2f(MARGIN_WIDTH, 0), lPur + Point2f(MARGIN_WIDTH, 0), cvScalar(255, 255, 0), 5);
 		cv::line(FrameTest, rBase + Point2f(MARGIN_WIDTH, 0), rPur + Point2f(MARGIN_WIDTH, 0), cvScalar(255, 255, 0), 5);
+
+		for (int i = 0; i < Lane->candR.size(); i++)
+		{
+			Point p = Lane->candR[i];
+			Point p1(mLaneFilter->BASE_BINS.at<int32_t>(p.x, 0) + mLaneFilter->O_ICCS_ICS.x + MARGIN_WIDTH, mLaneFilter->BASE_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - difY);
+			Point p2(mLaneFilter->PURVIEW_BINS.at<int32_t>(p.y, 0) + mLaneFilter->O_ICCS_ICS.x + MARGIN_WIDTH, mLaneFilter->PURVIEW_LINE_ICCS + mLaneFilter->O_ICCS_ICS.y - difY);
+
+			line(FrameTest, p1, p2, cvScalar(0, 0, 255), 3 );
+
+		}
+
+
 
 		cv::imshow("hist", FrameTest);
 	}
 
-
+return 0;
 
 	int N = 20;
 
